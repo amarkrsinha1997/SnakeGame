@@ -19,13 +19,18 @@ import {
   DIRECTIONS,
   Position,
   GameDifficulty,
-  REGULAR_EGG_POINTS,
-  DRAGON_EGG_LIFETIME,
   calculateGameSpeed,
-  getRandomDragonEggSpawn,
-  getRandomDragonEggRespawn,
-  getRandomDragonEggPoints,
 } from '../constants';
+import {
+  ActiveBonus,
+  BonusManagerState,
+  bonusRegistry,
+  createActiveBonus,
+  createInitialBonusState,
+  getBonusPositions,
+  getRandomRespawnThreshold,
+  REGULAR_EGG_CONFIG,
+} from '../types/bonus';
 import { getHighScore, updateHighScoreIfNeeded } from '../utils/storage';
 import {
   playSound,
@@ -36,7 +41,7 @@ import {
 } from '../utils/soundManager';
 import { Snake } from './Snake';
 import { Food } from './Food';
-import { DragonEgg } from './DragonEgg';
+import { BonusRenderer } from './BonusRenderer';
 import { DPadControls } from './DPadControls';
 
 interface GameScreenProps {
@@ -47,10 +52,7 @@ interface GameScreenProps {
 interface GameState {
   snake: Position[];
   food: Position;
-  dragonEgg: Position | null;
-  dragonEggTimeRemaining: number;
-  eggsEatenSinceLastDragon: number;
-  nextDragonEggAt: number;
+  bonusState: BonusManagerState;
   direction: Direction;
   nextDirection: Direction;
   score: number;
@@ -82,10 +84,7 @@ function createInitialState(): GameState {
   return {
     snake: initialSnake,
     food: getRandomPosition(initialSnake),
-    dragonEgg: null,
-    dragonEggTimeRemaining: 0,
-    eggsEatenSinceLastDragon: 0,
-    nextDragonEggAt: getRandomDragonEggSpawn(),
+    bonusState: createInitialBonusState(),
     direction: 'RIGHT',
     nextDirection: 'RIGHT',
     score: 0,
@@ -106,7 +105,8 @@ export function GameScreen({
   const [hasPlayedHighScoreSound, setHasPlayedHighScoreSound] = useState(false);
   const directionRef = useRef<Direction>('RIGHT');
   const nextDirectionRef = useRef<Direction>('RIGHT');
-  const dragonEggTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bonusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeDragonEggRef = useRef<boolean>(false);
 
   useEffect(() => {
     getHighScore().then(setHighScore);
@@ -175,40 +175,83 @@ export function GameScreen({
     setCurrentSpeed(calculateGameSpeed(gameState.snake.length, difficulty));
   }, [gameState.snake.length, difficulty]);
 
+  // Bonus timer effect - handles all timed bonuses
   useEffect(() => {
-    if (gameState.dragonEgg && gameState.isRunning) {
-      // Play dragon spawn sound once and start ambient loop
-      playDragonAmbient();
+    const activeBonuses = gameState.bonusState.activeBonuses;
+    const hasDragonEgg = activeBonuses.some(b => b.configType === 'dragon-egg');
 
-      dragonEggTimerRef.current = setInterval(() => {
+    // Handle dragon egg ambient sound
+    if (hasDragonEgg && gameState.isRunning && !activeDragonEggRef.current) {
+      activeDragonEggRef.current = true;
+      playDragonAmbient();
+    } else if (!hasDragonEgg && activeDragonEggRef.current) {
+      activeDragonEggRef.current = false;
+      stopDragonAmbient();
+    }
+
+    if (activeBonuses.length > 0 && gameState.isRunning) {
+      bonusTimerRef.current = setInterval(() => {
         setGameState(prev => {
-          if (!prev.dragonEgg) return prev;
-          const newTime = prev.dragonEggTimeRemaining - 100;
-          if (newTime <= 0) {
-            playSound('dragonDespawn');
-            stopDragonAmbient();
-            return {
-              ...prev,
-              dragonEgg: null,
-              dragonEggTimeRemaining: 0,
-              nextDragonEggAt: getRandomDragonEggRespawn(),
-              eggsEatenSinceLastDragon: 0,
-            };
-          }
-          return { ...prev, dragonEggTimeRemaining: newTime };
+          const updatedBonuses: ActiveBonus[] = [];
+          const expiredBonuses: ActiveBonus[] = [];
+
+          prev.bonusState.activeBonuses.forEach(bonus => {
+            const config = bonusRegistry.get(bonus.configType);
+            if (!config || config.lifetime === 0) {
+              updatedBonuses.push(bonus);
+              return;
+            }
+
+            const newTime = bonus.timeRemaining - 100;
+            if (newTime <= 0) {
+              expiredBonuses.push(bonus);
+              // Play despawn sound
+              if (config.sounds.onDespawn) {
+                playSound(config.sounds.onDespawn);
+              }
+              // Stop ambient if dragon egg
+              if (bonus.configType === 'dragon-egg') {
+                stopDragonAmbient();
+              }
+            } else {
+              updatedBonuses.push({ ...bonus, timeRemaining: newTime });
+            }
+          });
+
+          // Reset spawn counters for expired bonuses
+          const newEggsEatenSince = { ...prev.bonusState.eggsEatenSince };
+          const newNextSpawnAt = { ...prev.bonusState.nextSpawnAt };
+          expiredBonuses.forEach(bonus => {
+            const config = bonusRegistry.get(bonus.configType);
+            if (config) {
+              newEggsEatenSince[bonus.configType] = 0;
+              newNextSpawnAt[bonus.configType] =
+                getRandomRespawnThreshold(config);
+            }
+          });
+
+          return {
+            ...prev,
+            bonusState: {
+              ...prev.bonusState,
+              activeBonuses: updatedBonuses,
+              eggsEatenSince: newEggsEatenSince,
+              nextSpawnAt: newNextSpawnAt,
+            },
+          };
         });
       }, 100);
 
       return () => {
-        if (dragonEggTimerRef.current) {
-          clearInterval(dragonEggTimerRef.current);
+        if (bonusTimerRef.current) {
+          clearInterval(bonusTimerRef.current);
         }
-        stopDragonAmbient();
       };
-    } else {
+    } else if (!gameState.isRunning) {
       stopDragonAmbient();
+      activeDragonEggRef.current = false;
     }
-  }, [gameState.dragonEgg, gameState.isRunning]);
+  }, [gameState.bonusState.activeBonuses.length, gameState.isRunning]);
 
   useEffect(() => {
     if (!gameState.isRunning || gameState.isGameOver) return;
@@ -238,68 +281,147 @@ export function GameScreen({
         const newSnake = [newHead, ...prev.snake];
         let newFood = prev.food;
         let newScore = prev.score;
-        let newDragonEgg = prev.dragonEgg;
-        let newDragonEggTime = prev.dragonEggTimeRemaining;
-        let eggsEaten = prev.eggsEatenSinceLastDragon;
-        let nextDragonAt = prev.nextDragonEggAt;
+        let newBonusState = { ...prev.bonusState };
+        let snakeGrew = false;
 
+        // Check regular food collision
         if (newHead.x === prev.food.x && newHead.y === prev.food.y) {
-          newScore += REGULAR_EGG_POINTS;
-          const allPositions = [...newSnake];
-          if (newDragonEgg) allPositions.push(newDragonEgg);
+          const foodConfig = REGULAR_EGG_CONFIG;
+          newScore += foodConfig.minPoints;
+          snakeGrew = foodConfig.growsSnake;
+
+          // Get all occupied positions
+          const bonusPositions = getBonusPositions(newBonusState.activeBonuses);
+          const allPositions = [...newSnake, ...bonusPositions];
           newFood = getRandomPosition(allPositions);
-          eggsEaten += 1;
 
-          // Short vibration for eating
-          if (Platform.OS !== 'web') {
-            Vibration.vibrate(50);
+          // Vibration for eating
+          if (
+            Platform.OS !== 'web' &&
+            foodConfig.vibration.onCollect.length > 0
+          ) {
+            const pattern = foodConfig.vibration.onCollect;
+            if (pattern.length === 1) {
+              Vibration.vibrate(pattern[0]);
+            } else {
+              Vibration.vibrate(pattern);
+            }
           }
-          playSound('eat');
+          if (foodConfig.sounds.onCollect) {
+            playSound(foodConfig.sounds.onCollect);
+          }
 
           // Check if new high score achieved during gameplay
           if (newScore > highScore && !hasPlayedHighScoreSound) {
             if (Platform.OS !== 'web') {
-              // Celebration vibration for high score
               Vibration.vibrate([0, 50, 50, 50, 50, 100]);
             }
             playSound('highScore');
             setHasPlayedHighScoreSound(true);
           }
 
-          if (!newDragonEgg && eggsEaten >= nextDragonAt) {
-            const excludePositions = [...newSnake, newFood];
-            newDragonEgg = getRandomPosition(excludePositions);
-            newDragonEggTime = DRAGON_EGG_LIFETIME;
-            playSound('dragonSpawn');
-          }
-        } else if (
-          prev.dragonEgg &&
-          newHead.x === prev.dragonEgg.x &&
-          newHead.y === prev.dragonEgg.y
-        ) {
-          const dragonPoints = getRandomDragonEggPoints();
-          newScore += dragonPoints;
-          newDragonEgg = null;
-          newDragonEggTime = 0;
-          eggsEaten = 0;
-          nextDragonAt = getRandomDragonEggRespawn();
+          // Increment eggs eaten for all spawnable bonuses
+          const spawnableBonuses = bonusRegistry.getSpawnableBonuses();
+          const newEggsEatenSince = { ...newBonusState.eggsEatenSince };
+          spawnableBonuses.forEach(config => {
+            newEggsEatenSince[config.type] =
+              (newEggsEatenSince[config.type] || 0) + 1;
+          });
+          newBonusState.eggsEatenSince = newEggsEatenSince;
 
-          // Medium vibration for dragon egg
-          if (Platform.OS !== 'web') {
-            Vibration.vibrate([0, 100, 50, 100]);
-          }
-          playSound('dragonEat');
+          // Check if any bonus should spawn
+          spawnableBonuses.forEach(config => {
+            const eggsEaten = newBonusState.eggsEatenSince[config.type] || 0;
+            const threshold = newBonusState.nextSpawnAt[config.type] || 0;
+            const activeCount = newBonusState.activeBonuses.filter(
+              b => b.configType === config.type,
+            ).length;
 
-          // Check if new high score achieved during gameplay
-          if (newScore > highScore && !hasPlayedHighScoreSound) {
-            if (Platform.OS !== 'web') {
-              // Celebration vibration for high score
-              Vibration.vibrate([0, 50, 50, 50, 50, 100]);
+            if (
+              eggsEaten >= threshold &&
+              activeCount < config.maxInstances &&
+              Math.random() <= config.spawnChance
+            ) {
+              // Spawn this bonus
+              const bonusPositions2 = getBonusPositions(
+                newBonusState.activeBonuses,
+              );
+              const excludePositions = [
+                ...newSnake,
+                newFood,
+                ...bonusPositions2,
+              ];
+              const bonusPosition = getRandomPosition(excludePositions);
+              const newBonus = createActiveBonus(config, bonusPosition);
+
+              newBonusState.activeBonuses = [
+                ...newBonusState.activeBonuses,
+                newBonus,
+              ];
+
+              // Play spawn sound
+              if (config.sounds.onSpawn) {
+                playSound(config.sounds.onSpawn);
+              }
             }
-            playSound('highScore');
-            setHasPlayedHighScoreSound(true);
+          });
+        }
+
+        // Check bonus collisions
+        const collidedBonusIndex = newBonusState.activeBonuses.findIndex(
+          bonus =>
+            bonus.position.x === newHead.x && bonus.position.y === newHead.y,
+        );
+
+        if (collidedBonusIndex !== -1) {
+          const collidedBonus = newBonusState.activeBonuses[collidedBonusIndex];
+          const config = bonusRegistry.get(collidedBonus.configType);
+
+          if (config) {
+            newScore += collidedBonus.points;
+            snakeGrew = snakeGrew || config.growsSnake;
+
+            // Vibration
+            if (
+              Platform.OS !== 'web' &&
+              config.vibration.onCollect.length > 0
+            ) {
+              Vibration.vibrate(config.vibration.onCollect);
+            }
+
+            // Sound
+            if (config.sounds.onCollect) {
+              playSound(config.sounds.onCollect);
+            }
+
+            // Stop ambient if dragon egg
+            if (collidedBonus.configType === 'dragon-egg') {
+              stopDragonAmbient();
+            }
+
+            // Remove the collected bonus
+            newBonusState.activeBonuses = newBonusState.activeBonuses.filter(
+              (_, i) => i !== collidedBonusIndex,
+            );
+
+            // Reset spawn counter for this bonus type
+            newBonusState.eggsEatenSince[collidedBonus.configType] = 0;
+            newBonusState.nextSpawnAt[collidedBonus.configType] =
+              getRandomRespawnThreshold(config);
+
+            // Check if new high score achieved during gameplay
+            if (newScore > highScore && !hasPlayedHighScoreSound) {
+              if (Platform.OS !== 'web') {
+                Vibration.vibrate([0, 50, 50, 50, 50, 100]);
+              }
+              playSound('highScore');
+              setHasPlayedHighScoreSound(true);
+            }
           }
-        } else {
+        }
+
+        // Remove tail if snake didn't grow
+        if (!snakeGrew) {
           newSnake.pop();
         }
 
@@ -307,10 +429,7 @@ export function GameScreen({
           ...prev,
           snake: newSnake,
           food: newFood,
-          dragonEgg: newDragonEgg,
-          dragonEggTimeRemaining: newDragonEggTime,
-          eggsEatenSinceLastDragon: eggsEaten,
-          nextDragonEggAt: nextDragonAt,
+          bonusState: newBonusState,
           score: newScore,
           direction,
         };
@@ -318,7 +437,13 @@ export function GameScreen({
     }, currentSpeed);
 
     return () => clearInterval(interval);
-  }, [gameState.isRunning, gameState.isGameOver, currentSpeed]);
+  }, [
+    gameState.isRunning,
+    gameState.isGameOver,
+    currentSpeed,
+    highScore,
+    hasPlayedHighScoreSound,
+  ]);
 
   const startGame = useCallback(() => {
     const newState = createInitialState();
@@ -395,12 +520,9 @@ export function GameScreen({
         <View style={styles.board}>
           <Snake segments={gameState.snake} />
           <Food position={gameState.food} />
-          {gameState.dragonEgg && (
-            <DragonEgg
-              position={gameState.dragonEgg}
-              timeRemaining={gameState.dragonEggTimeRemaining}
-            />
-          )}
+          {gameState.bonusState.activeBonuses.map(bonus => (
+            <BonusRenderer key={bonus.id} bonus={bonus} />
+          ))}
         </View>
 
         {!gameState.isRunning && !gameState.isGameOver && (
