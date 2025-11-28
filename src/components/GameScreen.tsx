@@ -23,6 +23,7 @@ import {
 } from '../constants';
 import {
   ActiveBonus,
+  BonusConfig,
   BonusManagerState,
   bonusRegistry,
   createActiveBonus,
@@ -59,6 +60,10 @@ interface GameState {
   isGameOver: boolean;
 }
 
+// ============================================================================
+// Helper Functions (extracted to reduce cognitive complexity)
+// ============================================================================
+
 function getRandomPosition(excludePositions: Position[]): Position {
   let position: Position;
   do {
@@ -89,6 +94,286 @@ function createInitialState(): GameState {
     score: 0,
     isRunning: false,
     isGameOver: false,
+  };
+}
+
+function checkCollision(head: Position, snake: Position[]): boolean {
+  // Wall collision
+  if (
+    head.x < 0 ||
+    head.x >= GRID_WIDTH ||
+    head.y < 0 ||
+    head.y >= GRID_HEIGHT
+  ) {
+    return true;
+  }
+  // Self collision (skip head at index 0)
+  for (let i = 1; i < snake.length; i++) {
+    if (snake[i].x === head.x && snake[i].y === head.y) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function triggerVibration(pattern: number[]): void {
+  if (Platform.OS === 'web' || pattern.length === 0) return;
+  if (pattern.length === 1) {
+    Vibration.vibrate(pattern[0]);
+  } else {
+    Vibration.vibrate(pattern);
+  }
+}
+
+function processExpiredBonuses(bonuses: ActiveBonus[]): {
+  updated: ActiveBonus[];
+  expired: ActiveBonus[];
+} {
+  const updated: ActiveBonus[] = [];
+  const expired: ActiveBonus[] = [];
+
+  for (const bonus of bonuses) {
+    const config = bonusRegistry.get(bonus.configType);
+    if (!config || config.lifetime === 0) {
+      updated.push(bonus);
+      continue;
+    }
+
+    const newTime = bonus.timeRemaining - 100;
+    if (newTime <= 0) {
+      expired.push(bonus);
+      if (config.sounds.onDespawn) {
+        playSound(config.sounds.onDespawn);
+      }
+      if (bonus.configType === 'dragon-egg') {
+        stopDragonAmbient();
+      }
+    } else {
+      updated.push({ ...bonus, timeRemaining: newTime });
+    }
+  }
+
+  return { updated, expired };
+}
+
+function resetExpiredBonusCounters(
+  expired: ActiveBonus[],
+  eggsEatenSince: Record<string, number>,
+  nextSpawnAt: Record<string, number>,
+): {
+  newEggsEatenSince: Record<string, number>;
+  newNextSpawnAt: Record<string, number>;
+} {
+  const newEggsEatenSince = { ...eggsEatenSince };
+  const newNextSpawnAt = { ...nextSpawnAt };
+
+  for (const bonus of expired) {
+    const config = bonusRegistry.get(bonus.configType);
+    if (config) {
+      newEggsEatenSince[bonus.configType] = 0;
+      newNextSpawnAt[bonus.configType] = getRandomRespawnThreshold(config);
+    }
+  }
+
+  return { newEggsEatenSince, newNextSpawnAt };
+}
+
+function incrementEggsEaten(
+  spawnableBonuses: BonusConfig[],
+  currentEggsEaten: Record<string, number>,
+): Record<string, number> {
+  const newEggsEaten = { ...currentEggsEaten };
+  for (const config of spawnableBonuses) {
+    newEggsEaten[config.type] = (newEggsEaten[config.type] || 0) + 1;
+  }
+  return newEggsEaten;
+}
+
+function trySpawnBonuses(
+  spawnableBonuses: BonusConfig[],
+  bonusState: BonusManagerState,
+  snake: Position[],
+  food: Position,
+): ActiveBonus[] {
+  const newBonuses: ActiveBonus[] = [];
+
+  for (const config of spawnableBonuses) {
+    const eggsEaten = bonusState.eggsEatenSince[config.type] || 0;
+    const threshold = bonusState.nextSpawnAt[config.type] || 0;
+    const activeCount = bonusState.activeBonuses.filter(
+      b => b.configType === config.type,
+    ).length;
+
+    const shouldSpawn =
+      eggsEaten >= threshold &&
+      activeCount < config.maxInstances &&
+      Math.random() <= config.spawnChance;
+
+    if (shouldSpawn) {
+      const bonusPositions = getBonusPositions(bonusState.activeBonuses);
+      const excludePositions = [...snake, food, ...bonusPositions];
+      const position = getRandomPosition(excludePositions);
+      const newBonus = createActiveBonus(config, position);
+      newBonuses.push(newBonus);
+
+      if (config.sounds.onSpawn) {
+        playSound(config.sounds.onSpawn);
+      }
+    }
+  }
+
+  return newBonuses;
+}
+
+function applyShrinkEffect(snake: Position[], shrinkAmount: number): void {
+  const minLength = 3; // Keep at least 3 cells
+  if (snake.length > shrinkAmount + minLength - 1) {
+    for (let i = 0; i < shrinkAmount; i++) {
+      snake.pop();
+    }
+  }
+}
+
+function findCollidedBonus(bonuses: ActiveBonus[], position: Position): number {
+  for (let i = 0; i < bonuses.length; i++) {
+    if (
+      bonuses[i].position.x === position.x &&
+      bonuses[i].position.y === position.y
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function removeBonusAtIndex(
+  bonuses: ActiveBonus[],
+  index: number,
+): ActiveBonus[] {
+  return bonuses.filter((_, i) => i !== index);
+}
+
+interface FoodCollisionResult {
+  newFood: Position;
+  newScore: number;
+  snakeGrew: boolean;
+  newBonusState: BonusManagerState;
+  isNewHighScore: boolean;
+}
+
+function handleFoodCollision(
+  newSnake: Position[],
+  currentFood: Position,
+  currentScore: number,
+  bonusState: BonusManagerState,
+  highScore: number,
+): FoodCollisionResult {
+  const foodConfig = REGULAR_EGG_CONFIG;
+  const newScore = currentScore + foodConfig.minPoints;
+  const snakeGrew = foodConfig.growsSnake;
+
+  // Spawn new food
+  const bonusPositions = getBonusPositions(bonusState.activeBonuses);
+  const newFood = getRandomPosition([...newSnake, ...bonusPositions]);
+
+  // Vibration and sound
+  triggerVibration(foodConfig.vibration.onCollect);
+  if (foodConfig.sounds.onCollect) {
+    playSound(foodConfig.sounds.onCollect);
+  }
+
+  // Update bonus spawn tracking
+  const spawnableBonuses = bonusRegistry.getSpawnableBonuses();
+  const newBonusState = { ...bonusState };
+  newBonusState.eggsEatenSince = incrementEggsEaten(
+    spawnableBonuses,
+    bonusState.eggsEatenSince,
+  );
+
+  // Try to spawn bonuses
+  const spawnedBonuses = trySpawnBonuses(
+    spawnableBonuses,
+    newBonusState,
+    newSnake,
+    newFood,
+  );
+  if (spawnedBonuses.length > 0) {
+    newBonusState.activeBonuses = [
+      ...newBonusState.activeBonuses,
+      ...spawnedBonuses,
+    ];
+  }
+
+  return {
+    newFood,
+    newScore,
+    snakeGrew,
+    newBonusState,
+    isNewHighScore: newScore > highScore,
+  };
+}
+
+interface BonusCollisionResult {
+  newScore: number;
+  snakeGrew: boolean;
+  newBonusState: BonusManagerState;
+  isNewHighScore: boolean;
+}
+
+function handleBonusCollision(
+  newSnake: Position[],
+  collidedBonusIndex: number,
+  currentScore: number,
+  bonusState: BonusManagerState,
+  currentSnakeGrew: boolean,
+  highScore: number,
+): BonusCollisionResult {
+  const collidedBonus = bonusState.activeBonuses[collidedBonusIndex];
+  const config = bonusRegistry.get(collidedBonus.configType);
+  const newBonusState = { ...bonusState };
+
+  if (!config) {
+    return {
+      newScore: currentScore,
+      snakeGrew: currentSnakeGrew,
+      newBonusState,
+      isNewHighScore: false,
+    };
+  }
+
+  const newScore = currentScore + collidedBonus.points;
+  const snakeGrew = currentSnakeGrew || config.growsSnake;
+
+  // Handle shrink effect
+  if (config.effect.type === 'shrink' && config.effect.value) {
+    applyShrinkEffect(newSnake, config.effect.value);
+  }
+
+  // Vibration and sound
+  triggerVibration(config.vibration.onCollect);
+  if (config.sounds.onCollect) {
+    playSound(config.sounds.onCollect);
+  }
+
+  // Stop dragon ambient if applicable
+  if (collidedBonus.configType === 'dragon-egg') {
+    stopDragonAmbient();
+  }
+
+  // Remove collected bonus and reset spawn counter
+  newBonusState.activeBonuses = removeBonusAtIndex(
+    bonusState.activeBonuses,
+    collidedBonusIndex,
+  );
+  newBonusState.eggsEatenSince[collidedBonus.configType] = 0;
+  newBonusState.nextSpawnAt[collidedBonus.configType] =
+    getRandomRespawnThreshold(config);
+
+  return {
+    newScore,
+    snakeGrew,
+    newBonusState,
+    isNewHighScore: newScore > highScore,
   };
 }
 
@@ -191,49 +476,21 @@ export function GameScreen({
     if (activeBonuses.length > 0 && gameState.isRunning) {
       bonusTimerRef.current = setInterval(() => {
         setGameState(prev => {
-          const updatedBonuses: ActiveBonus[] = [];
-          const expiredBonuses: ActiveBonus[] = [];
-
-          prev.bonusState.activeBonuses.forEach(bonus => {
-            const config = bonusRegistry.get(bonus.configType);
-            if (!config || config.lifetime === 0) {
-              updatedBonuses.push(bonus);
-              return;
-            }
-
-            const newTime = bonus.timeRemaining - 100;
-            if (newTime <= 0) {
-              expiredBonuses.push(bonus);
-              // Play despawn sound
-              if (config.sounds.onDespawn) {
-                playSound(config.sounds.onDespawn);
-              }
-              // Stop ambient if dragon egg
-              if (bonus.configType === 'dragon-egg') {
-                stopDragonAmbient();
-              }
-            } else {
-              updatedBonuses.push({ ...bonus, timeRemaining: newTime });
-            }
-          });
-
-          // Reset spawn counters for expired bonuses
-          const newEggsEatenSince = { ...prev.bonusState.eggsEatenSince };
-          const newNextSpawnAt = { ...prev.bonusState.nextSpawnAt };
-          expiredBonuses.forEach(bonus => {
-            const config = bonusRegistry.get(bonus.configType);
-            if (config) {
-              newEggsEatenSince[bonus.configType] = 0;
-              newNextSpawnAt[bonus.configType] =
-                getRandomRespawnThreshold(config);
-            }
-          });
+          const { updated, expired } = processExpiredBonuses(
+            prev.bonusState.activeBonuses,
+          );
+          const { newEggsEatenSince, newNextSpawnAt } =
+            resetExpiredBonusCounters(
+              expired,
+              prev.bonusState.eggsEatenSince,
+              prev.bonusState.nextSpawnAt,
+            );
 
           return {
             ...prev,
             bonusState: {
               ...prev.bonusState,
-              activeBonuses: updatedBonuses,
+              activeBonuses: updated,
               eggsEatenSince: newEggsEatenSince,
               nextSpawnAt: newNextSpawnAt,
             },
@@ -265,15 +522,8 @@ export function GameScreen({
         const head = prev.snake[0];
         const newHead: Position = { x: head.x + dir.x, y: head.y + dir.y };
 
-        if (
-          newHead.x < 0 ||
-          newHead.x >= GRID_WIDTH ||
-          newHead.y < 0 ||
-          newHead.y >= GRID_HEIGHT ||
-          prev.snake.some(
-            (seg, i) => i > 0 && seg.x === newHead.x && seg.y === newHead.y,
-          )
-        ) {
+        // Check for collision (walls and self)
+        if (checkCollision(newHead, prev.snake)) {
           return { ...prev, isGameOver: true, isRunning: false };
         }
 
@@ -284,154 +534,51 @@ export function GameScreen({
         let snakeGrew = false;
 
         // Check regular food collision
-        if (newHead.x === prev.food.x && newHead.y === prev.food.y) {
-          const foodConfig = REGULAR_EGG_CONFIG;
-          newScore += foodConfig.minPoints;
-          snakeGrew = foodConfig.growsSnake;
+        const ateFoodThisTick =
+          newHead.x === prev.food.x && newHead.y === prev.food.y;
+        if (ateFoodThisTick) {
+          const foodResult = handleFoodCollision(
+            newSnake,
+            prev.food,
+            newScore,
+            newBonusState,
+            highScore,
+          );
+          newFood = foodResult.newFood;
+          newScore = foodResult.newScore;
+          snakeGrew = foodResult.snakeGrew;
+          newBonusState = foodResult.newBonusState;
 
-          // Get all occupied positions
-          const bonusPositions = getBonusPositions(newBonusState.activeBonuses);
-          const allPositions = [...newSnake, ...bonusPositions];
-          newFood = getRandomPosition(allPositions);
-
-          // Vibration for eating
-          if (
-            Platform.OS !== 'web' &&
-            foodConfig.vibration.onCollect.length > 0
-          ) {
-            const pattern = foodConfig.vibration.onCollect;
-            if (pattern.length === 1) {
-              Vibration.vibrate(pattern[0]);
-            } else {
-              Vibration.vibrate(pattern);
-            }
-          }
-          if (foodConfig.sounds.onCollect) {
-            playSound(foodConfig.sounds.onCollect);
-          }
-
-          // Check if new high score achieved during gameplay
-          if (newScore > highScore && !hasPlayedHighScoreSound) {
-            if (Platform.OS !== 'web') {
-              Vibration.vibrate([0, 50, 50, 50, 50, 100]);
-            }
+          if (foodResult.isNewHighScore && !hasPlayedHighScoreSound) {
+            triggerVibration([0, 50, 50, 50, 50, 100]);
             playSound('highScore');
             setHasPlayedHighScoreSound(true);
           }
-
-          // Increment eggs eaten for all spawnable bonuses
-          const spawnableBonuses = bonusRegistry.getSpawnableBonuses();
-          const newEggsEatenSince = { ...newBonusState.eggsEatenSince };
-          spawnableBonuses.forEach(config => {
-            newEggsEatenSince[config.type] =
-              (newEggsEatenSince[config.type] || 0) + 1;
-          });
-          newBonusState.eggsEatenSince = newEggsEatenSince;
-
-          // Check if any bonus should spawn
-          spawnableBonuses.forEach(config => {
-            const eggsEaten = newBonusState.eggsEatenSince[config.type] || 0;
-            const threshold = newBonusState.nextSpawnAt[config.type] || 0;
-            const activeCount = newBonusState.activeBonuses.filter(
-              b => b.configType === config.type,
-            ).length;
-
-            if (
-              eggsEaten >= threshold &&
-              activeCount < config.maxInstances &&
-              Math.random() <= config.spawnChance
-            ) {
-              // Spawn this bonus
-              const bonusPositions2 = getBonusPositions(
-                newBonusState.activeBonuses,
-              );
-              const excludePositions = [
-                ...newSnake,
-                newFood,
-                ...bonusPositions2,
-              ];
-              const bonusPosition = getRandomPosition(excludePositions);
-              const newBonus = createActiveBonus(config, bonusPosition);
-
-              newBonusState.activeBonuses = [
-                ...newBonusState.activeBonuses,
-                newBonus,
-              ];
-
-              // Play spawn sound
-              if (config.sounds.onSpawn) {
-                playSound(config.sounds.onSpawn);
-              }
-            }
-          });
         }
 
         // Check bonus collisions
-        const collidedBonusIndex = newBonusState.activeBonuses.findIndex(
-          bonus =>
-            bonus.position.x === newHead.x && bonus.position.y === newHead.y,
+        const collidedBonusIndex = findCollidedBonus(
+          newBonusState.activeBonuses,
+          newHead,
         );
 
         if (collidedBonusIndex !== -1) {
-          const collidedBonus = newBonusState.activeBonuses[collidedBonusIndex];
-          const config = bonusRegistry.get(collidedBonus.configType);
+          const bonusResult = handleBonusCollision(
+            newSnake,
+            collidedBonusIndex,
+            newScore,
+            newBonusState,
+            snakeGrew,
+            highScore,
+          );
+          newScore = bonusResult.newScore;
+          snakeGrew = bonusResult.snakeGrew;
+          newBonusState = bonusResult.newBonusState;
 
-          if (config) {
-            newScore += collidedBonus.points;
-            snakeGrew = snakeGrew || config.growsSnake;
-
-            // Handle special effects
-            if (config.effect.type === 'shrink' && config.effect.value) {
-              const shrinkAmount = config.effect.value;
-              const currentLength = newSnake.length;
-              // Only shrink if snake has more than shrinkAmount cells
-              // Keep at least 3 cells (minimum snake size)
-              if (currentLength > shrinkAmount + 2) {
-                // Remove cells from the tail
-                for (let i = 0; i < shrinkAmount; i++) {
-                  newSnake.pop();
-                }
-              }
-              // If snake is already small (<=5 cells), do nothing special
-              // The points are still awarded
-            }
-
-            // Vibration
-            if (
-              Platform.OS !== 'web' &&
-              config.vibration.onCollect.length > 0
-            ) {
-              Vibration.vibrate(config.vibration.onCollect);
-            }
-
-            // Sound
-            if (config.sounds.onCollect) {
-              playSound(config.sounds.onCollect);
-            }
-
-            // Stop ambient if dragon egg
-            if (collidedBonus.configType === 'dragon-egg') {
-              stopDragonAmbient();
-            }
-
-            // Remove the collected bonus
-            newBonusState.activeBonuses = newBonusState.activeBonuses.filter(
-              (_, i) => i !== collidedBonusIndex,
-            );
-
-            // Reset spawn counter for this bonus type
-            newBonusState.eggsEatenSince[collidedBonus.configType] = 0;
-            newBonusState.nextSpawnAt[collidedBonus.configType] =
-              getRandomRespawnThreshold(config);
-
-            // Check if new high score achieved during gameplay
-            if (newScore > highScore && !hasPlayedHighScoreSound) {
-              if (Platform.OS !== 'web') {
-                Vibration.vibrate([0, 50, 50, 50, 50, 100]);
-              }
-              playSound('highScore');
-              setHasPlayedHighScoreSound(true);
-            }
+          if (bonusResult.isNewHighScore && !hasPlayedHighScoreSound) {
+            triggerVibration([0, 50, 50, 50, 50, 100]);
+            playSound('highScore');
+            setHasPlayedHighScoreSound(true);
           }
         }
 
@@ -655,7 +802,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: COLORS.gameOver,
     justifyContent: 'center',
     alignItems: 'center',
