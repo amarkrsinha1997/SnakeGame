@@ -6,9 +6,8 @@ alwaysApply: true
 
 ## ⚠️ Critical Project Constraints
 - **NO EXPO**: This is a bare React Native project. Do NOT use Expo Go or any expo-* packages
-- **NO NATIVE AUDIO LIBS**: Do NOT use react-native-sound, expo-av, or other libraries requiring native linking
-- **Web-First Audio**: Sounds work on web via HTML5 Audio, silent on mobile (acceptable)
-- **Keep it Simple**: Use only core React Native APIs and web-compatible libraries
+- **Audio Library**: Uses `react-native-sound` for cross-platform audio (Web, Android, iOS)
+- **Keep it Simple**: Use only core React Native APIs and minimal dependencies
 
 ## Theme & Colors
 - **Theme**: Dark cyberpunk aesthetic with neon accents
@@ -39,24 +38,39 @@ alwaysApply: true
 
 ### Assets (`src/assets/`)
 - **icons/SnakeLogo.tsx**: SVG logo component
-- **sounds/** - All game audio files:
-  - `eat.mp3`: Regular egg consumption
-  - `dragon_egg_ate.wav`: Dragon egg consumption
-  - `dragon_spawn.mp3`: Dragon egg appears
-  - `dragon_despawn.wav`: Dragon egg disappears
-  - `game_over.mp3`: Game over sound
-  - `game_start.mp3`: Game start sound
-  - `high_score.wav`: New high score celebration
-  - `music_music.mp3`: Background music (loops during gameplay)
+- **sounds/** - ⚠️ **SINGLE SOURCE FOR ALL AUDIO FILES** ⚠️
+  - **CRITICAL**: All sound files MUST exist ONLY in `src/assets/sounds/`
+  - **DO NOT** copy sounds to `web/sounds/`, `android/app/src/main/res/raw/`, or `ios/SnakeGame/sounds/`
+  - Metro bundler (native) and Webpack (web) automatically bundle sounds from this location
+  - Sound files:
+    - `eat.mp3`: Regular egg consumption (4KB)
+    - `dragon_egg_ate.wav`: Dragon egg consumption (610KB)
+    - `dragon_spawn.mp3`: Dragon egg appears (4KB)
+    - `dragon_despawn.wav`: Dragon egg disappears (287KB)
+    - `game_over.mp3`: Game over sound (96KB)
+    - `game_start.mp3`: Game start sound (68KB)
+    - `high_score.wav`: New high score celebration (513KB)
+    - `music_music.mp3`: Background music - loops during gameplay (1.4MB)
 
 ### Utilities (`src/utils/`)
-- **soundManager.ts**: Cross-platform audio system
-  - Web: Uses HTML5 Audio API with caching (fully functional)
-  - Native: Audio disabled (no external dependencies)
-  - Functions: `playSound()`, `playMusic()`, `stopMusic()`, `setSoundMuted()`, `setMusicMuted()`
-  - Sound types: 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore'
-  - Background music: Loops at 30% volume during gameplay, stops on game over/exit
-  - Note: Sounds and music work on web, silent on mobile (can add native modules later if needed)
+- **soundManager.ts**: Cross-platform audio system using `react-native-sound`
+  - **Web**: Uses HTML5 Audio API with caching
+  - **Android/iOS**: Uses `react-native-sound` library
+  - **Sound Loading**: Uses `require()` statements to load all sounds from `src/assets/sounds/`
+  - **Functions**: `playSound()`, `playMusic()`, `stopMusic()`, `setSoundMuted()`, `setMusicMuted()`
+  - **Sound types**: 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore'
+  - **Background music**: Loops at 30% volume during gameplay, stops on game over/exit
+  - **Caching**: Sound objects cached after first load for performance
+  - **Implementation**:
+    ```typescript
+    const soundFiles: Record<SoundType, any> = {
+      eat: require('../assets/sounds/eat.mp3'),
+      dragonEat: require('../assets/sounds/dragon_egg_ate.wav'),
+      // ... etc
+    };
+    ```
+  - Platform detection automatic via `Platform.OS`
+  - All platforms work with same code and single sound source
   
 - **storage.ts**: AsyncStorage wrapper for persistence
   - Functions: `getHighScore()`, `setHighScore()`, `updateHighScoreIfNeeded()`
@@ -120,24 +134,26 @@ alwaysApply: true
 - **Loaders**:
   - JS/TS: babel-loader with React Native Web preset
   - Images: asset/resource (.gif, .jpg, .png, .svg)
-  - Audio: asset/resource with `/sounds/` output path
+  - Audio: asset/resource for .mp3/.wav files - bundled automatically via `require()`
 - **Aliases**: `react-native` → `react-native-web`
 - **Dev Server**:
   - Port: 8080
-  - Static files: `web/` and `src/assets/sounds/` (as `/sounds/`)
+  - Static files: `web/` folder only
+  - Sounds bundled via require() - no separate static serving needed
   - Hot reload enabled
   - History API fallback for routing
 
 ### Web-Specific Adaptations
 - Audio: HTML5 Audio API with caching in `soundManager.ts`
 - Platform detection: `Platform.OS === 'web'`
-- Audio URLs: `/sounds/[filename]` format
+- Webpack bundles sounds via `require()` statements automatically
 - AsyncStorage: Works via `@react-native-async-storage/async-storage` (uses localStorage on web)
 
 ### Native Mobile Adaptations
-- Audio: Currently disabled (no external dependencies)
-- All game mechanics work perfectly without sound
-- Can add native audio modules later if needed (without Expo)
+- Audio: `react-native-sound` library for playback
+- Sounds loaded via `require()` from `src/assets/sounds/`
+- Metro bundler automatically includes sound files in app bundle
+- No manual copying or Xcode/Android configuration needed
 
 ### Android Permissions
 - **INTERNET**: Required for Metro bundler connection during development
@@ -162,13 +178,41 @@ alwaysApply: true
 - High scores: Auto-saved, persist between sessions
 
 ## Dependencies
-- **Storage**: `@react-native-async-storage/async-storage`
-- **Audio**: HTML5 Audio (web only), native mobile audio disabled
+- **Storage**: `@react-native-async-storage/async-storage` (v2.2.0)
+- **Audio**: `react-native-sound` (v0.13.0) - cross-platform audio
 - **Web**: `react-native-web`, `webpack`, `babel`
 - **No game engine**: Pure React state and setInterval
 - **IMPORTANT**: DO NOT use Expo or Expo-dependent libraries (expo-av, expo-*, etc.)
-- **IMPORTANT**: DO NOT use react-native-sound (requires native linking)
 - This is a bare React Native project without Expo Go
+
+## Sound File Management Rules
+⚠️ **CRITICAL - MUST FOLLOW** ⚠️
+
+1. **Single Source Location**: ALL sound files MUST exist ONLY in `src/assets/sounds/`
+2. **No Duplicates**: NEVER copy sounds to:
+   - ❌ `web/sounds/`
+   - ❌ `android/app/src/main/res/raw/`
+   - ❌ `ios/SnakeGame/sounds/`
+   - ❌ Any other location
+3. **Loading Method**: Use `require()` statements in `soundManager.ts`:
+   ```typescript
+   const soundFiles = {
+     eat: require('../assets/sounds/eat.mp3'),
+     // etc...
+   };
+   ```
+4. **Bundling**: Metro (native) and Webpack (web) handle bundling automatically
+5. **Adding New Sounds**:
+   - Add file to `src/assets/sounds/`
+   - Add require() statement in `soundManager.ts`
+   - Add to SoundType union type
+   - That's it! No platform-specific setup needed
+
+## Documentation
+- All documentation stored in `docs/` folder:
+  - `docs/SOUND_SETUP.md` - Sound system setup and troubleshooting
+  - `docs/CHANGES_SUMMARY.md` - Change history and implementation details
+  - `docs/README_SOUNDS.md` - Quick reference for sound file management
 
 ## Navigation
 - **App.tsx**: Simple state-based navigation (`screen` state)

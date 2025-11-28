@@ -1,97 +1,179 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 🐍 Snake Game
 
-# Getting Started
+A classic Snake game built with React Native, featuring cross-platform support for Web, Android, and iOS with a dark cyberpunk theme and immersive sound effects.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## ✨ Features
 
-## Step 1: Start Metro
+- 🎮 Classic snake gameplay with modern controls
+- 🌐 Cross-platform: Web, Android, and iOS
+- 🎨 Dark cyberpunk theme with neon glow effects
+- 🎵 Full sound support on all platforms
+- 🐉 Special dragon eggs with bonus points
+- 📱 Mobile-optimized D-Pad controls
+- 💾 Persistent high scores
+- ⚡ Dynamic difficulty (speed increases as you grow)
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## 🚀 Quick Start
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### Prerequisites
 
-```sh
-# Using npm
-npm start
+- Node.js >= 20
+- For iOS: Xcode and CocoaPods
+- For Android: Android Studio and Android SDK
 
-# OR using Yarn
-yarn start
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# For iOS, install pods
+cd ios && pod install && cd ..
 ```
 
-## Step 2: Build and run your app
+### Running the App
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+**Web:**
+```bash
+npm run web
+```
+Visit http://localhost:8080
 
-### Android
-
-```sh
-# Using npm
+**Android:**
+```bash
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+**iOS:**
+```bash
 npm run ios
-
-# OR using Yarn
-yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## 🎮 How to Play
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+- **Objective**: Eat eggs to grow your snake and score points
+- **Controls**: 
+  - Desktop: Arrow keys or on-screen D-Pad
+  - Mobile: Touch the D-Pad buttons
+- **Regular Eggs** (🟠): +1 point
+- **Dragon Eggs** (🟡): +10-15 points (appear randomly, 20s lifetime)
+- **Game Over**: Hit a wall or yourself
 
-## Step 3: Modify your app
+## 📁 Project Structure
 
-Now that you have successfully run the app, let's make changes!
+```
+SnakeGame/
+├── src/
+│   ├── assets/
+│   │   ├── icons/          # SVG icons
+│   │   └── sounds/         # ⚠️ SINGLE SOURCE for all audio files
+│   ├── components/         # React components
+│   ├── utils/              # Utilities (soundManager, storage)
+│   └── constants.ts        # Game configuration
+├── docs/                   # 📚 Project documentation
+│   ├── README.md          # Documentation index
+│   ├── SOUND_SETUP.md     # Sound system guide
+│   ├── README_SOUNDS.md   # Sound file management
+│   └── CHANGES_SUMMARY.md # Change history
+├── web/                    # Web-specific files
+├── android/                # Android native code
+├── ios/                    # iOS native code
+└── .cursor/
+    └── rule.mdc           # Project rules and conventions
+```
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## 🔊 Sound System
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+All sound files are managed from a **single source location**: `src/assets/sounds/`
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+- Uses `react-native-sound` for cross-platform audio
+- Automatic bundling via Metro (native) and Webpack (web)
+- No duplicate files needed
+- See [docs/README_SOUNDS.md](./docs/README_SOUNDS.md) for details
 
-## Congratulations! :tada:
+**⚠️ IMPORTANT**: Never copy sound files to platform-specific directories!
 
-You've successfully run and modified your React Native App. :partying_face:
+## 📚 Documentation
 
-### Now what?
+Comprehensive documentation is available in the [`docs/`](./docs/) folder:
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+- **[docs/README.md](./docs/README.md)** - Documentation index
+- **[docs/SOUND_SETUP.md](./docs/SOUND_SETUP.md)** - Sound system setup and troubleshooting
+- **[docs/README_SOUNDS.md](./docs/README_SOUNDS.md)** - Sound file management guide
+- **[.cursor/rule.mdc](./.cursor/rule.mdc)** - Complete project rules and architecture
 
-# Troubleshooting
+## 🛠️ Tech Stack
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+- **React Native** (0.82.1) - Cross-platform framework
+- **React Native Web** - Web support
+- **TypeScript** - Type safety
+- **react-native-sound** - Audio playback
+- **AsyncStorage** - Data persistence
+- **Webpack** - Web bundling
 
-# Learn More
+## 🎨 Theme
 
-To learn more about React Native, take a look at the following resources:
+Dark cyberpunk aesthetic with neon accents:
+- Deep dark background (`#0a0a0f`)
+- Neon green snake (`#00ff88`)
+- Orange regular eggs (`#ff6b35`)
+- Gold dragon eggs (`#ffd700`)
+- Glow effects and smooth animations
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## 📝 Game Rules
+
+- Snake starts with 3 segments
+- Speed increases as snake grows (capped at reasonable level)
+- Dragon eggs spawn randomly after eating 5-15 regular eggs
+- Dragon eggs despawn after 20 seconds
+- High scores saved automatically
+
+## 🤝 Contributing
+
+This is a bare React Native project (no Expo). Follow these guidelines:
+
+1. Keep components under 300 lines
+2. Use functional components with hooks
+3. Follow TypeScript strict typing
+4. **NEVER** copy sound files to platform-specific directories
+5. See [.cursor/rule.mdc](./.cursor/rule.mdc) for complete rules
+
+## 📄 License
+
+This project is for educational and entertainment purposes.
+
+## 🐛 Troubleshooting
+
+**Sounds not working?**
+- Check [docs/SOUND_SETUP.md](./docs/SOUND_SETUP.md) troubleshooting section
+- Verify files exist in `src/assets/sounds/`
+- Try clean build: `cd android && ./gradlew clean` or `cd ios && rm -rf build`
+
+**iOS build issues?**
+```bash
+cd ios
+rm -rf Pods Podfile.lock build
+pod install
+cd ..
+npm run ios
+```
+
+**Android build issues?**
+```bash
+cd android
+./gradlew clean
+cd ..
+npm run android
+```
+
+## 🎯 Future Enhancements
+
+- Leaderboard system
+- Multiple difficulty levels
+- Power-ups and special items
+- Multiplayer mode
+- More themes and customization
+
+---
+
+Made with ❤️ using React Native

@@ -71,15 +71,9 @@ module.exports = {
     }),
   ],
   devServer: {
-    static: [
-      {
-        directory: path.resolve(appDirectory, 'web'),
-      },
-      {
-        directory: path.resolve(appDirectory, 'src/assets/sounds'),
-        publicPath: '/sounds',
-      },
-    ],
+    static: {
+      directory: path.resolve(appDirectory, 'web'),
+    },
     hot: true,
     port: 8080,
     historyApiFallback: true,

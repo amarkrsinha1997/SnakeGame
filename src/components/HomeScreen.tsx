@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import { COLORS } from '../constants';
 import { getHighScore, getSoundEnabled, setSoundEnabled, getMusicEnabled, setMusicEnabled } from '../utils/storage';
-import { setSoundMuted, setMusicMuted } from '../utils/soundManager';
+import { setSoundMuted, setMusicMuted, playMusic, stopMusic } from '../utils/soundManager';
 
 interface HomeScreenProps {
   onStartGame: () => void;
@@ -23,6 +23,10 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
     getMusicEnabled().then((enabled) => {
       setMusicOn(enabled);
       setMusicMuted(!enabled);
+      // Start music on home screen if enabled
+      if (enabled) {
+        playMusic();
+      }
     });
 
     const pulse = Animated.loop(
@@ -41,7 +45,11 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
     );
     pulse.start();
 
-    return () => pulse.stop();
+    // Stop music when leaving home screen
+    return () => {
+      pulse.stop();
+      stopMusic();
+    };
   }, [pulseAnim]);
 
   const toggleSound = () => {
@@ -56,6 +64,13 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
     setMusicOn(newValue);
     setMusicEnabled(newValue);
     setMusicMuted(!newValue);
+    
+    // Actually start or stop the music
+    if (newValue) {
+      playMusic();
+    } else {
+      stopMusic();
+    }
   };
 
   return (

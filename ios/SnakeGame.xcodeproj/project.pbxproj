@@ -7,23 +7,39 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0BD0934CC28C8B688D0CDF90 /* music_music.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D235DC504CEFA35E61277113 /* music_music.mp3 */; };
 		0C80B921A6F3F58F76C31292 /* libPods-SnakeGame.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-SnakeGame.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		1C5B0FE4E1E66EC17D68F138 /* dragon_egg_ate.wav in Resources */ = {isa = PBXBuildFile; fileRef = 31A44D6B0E1518E5958DCDB2 /* dragon_egg_ate.wav */; };
 		382E04D3297A9EB546773959 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		451DF1526C4C8B43291100B3 /* high_score.wav in Resources */ = {isa = PBXBuildFile; fileRef = 8184ADECBEB7B0005E6221CC /* high_score.wav */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		880BF8169E39FA39FA35A935 /* dragon_spawn.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 2E273E563DCB5C5593DFC5C7 /* dragon_spawn.mp3 */; };
+		8EB11730405F680C85CBBF66 /* dragon_despawn.wav in Resources */ = {isa = PBXBuildFile; fileRef = A011ABB58CE0E3BEE4197953 /* dragon_despawn.wav */; };
+		A9E8DF1D36EAD5227642A9CB /* game_start.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 0DD7C593701DDA26826439A1 /* game_start.mp3 */; };
+		D6FFED8180E343F42D067976 /* eat.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C2E7D68FED226E7B10DFA231 /* eat.mp3 */; };
+		E13B07298ED9F054FD99DA4B /* game_over.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8D40F3017DA3C9F35713FF5D /* game_over.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0DD7C593701DDA26826439A1 /* game_start.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = game_start.mp3; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* SnakeGame.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnakeGame.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = SnakeGame/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = SnakeGame/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = SnakeGame/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2E273E563DCB5C5593DFC5C7 /* dragon_spawn.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = dragon_spawn.mp3; sourceTree = "<group>"; };
+		31A44D6B0E1518E5958DCDB2 /* dragon_egg_ate.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = dragon_egg_ate.wav; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-SnakeGame.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SnakeGame.debug.xcconfig"; path = "Target Support Files/Pods-SnakeGame/Pods-SnakeGame.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-SnakeGame.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SnakeGame.release.xcconfig"; path = "Target Support Files/Pods-SnakeGame/Pods-SnakeGame.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-SnakeGame.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-SnakeGame.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SnakeGame/AppDelegate.swift; sourceTree = "<group>"; };
+		8184ADECBEB7B0005E6221CC /* high_score.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = high_score.wav; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = SnakeGame/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8D40F3017DA3C9F35713FF5D /* game_over.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = game_over.mp3; sourceTree = "<group>"; };
+		A011ABB58CE0E3BEE4197953 /* dragon_despawn.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = dragon_despawn.wav; sourceTree = "<group>"; };
+		C2E7D68FED226E7B10DFA231 /* eat.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = eat.mp3; sourceTree = "<group>"; };
+		D235DC504CEFA35E61277113 /* music_music.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = music_music.mp3; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -47,6 +63,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				490DDE07A4CE0DC4AD1DDECD /* sounds */,
 			);
 			name = SnakeGame;
 			sourceTree = "<group>";
@@ -58,6 +75,21 @@
 				5DCACB8F33CDC322A6C60F78 /* libPods-SnakeGame.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		490DDE07A4CE0DC4AD1DDECD /* sounds */ = {
+			isa = PBXGroup;
+			children = (
+				A011ABB58CE0E3BEE4197953 /* dragon_despawn.wav */,
+				31A44D6B0E1518E5958DCDB2 /* dragon_egg_ate.wav */,
+				2E273E563DCB5C5593DFC5C7 /* dragon_spawn.mp3 */,
+				C2E7D68FED226E7B10DFA231 /* eat.mp3 */,
+				8D40F3017DA3C9F35713FF5D /* game_over.mp3 */,
+				0DD7C593701DDA26826439A1 /* game_start.mp3 */,
+				8184ADECBEB7B0005E6221CC /* high_score.wav */,
+				D235DC504CEFA35E61277113 /* music_music.mp3 */,
+			);
+			path = sounds;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -161,6 +193,14 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				382E04D3297A9EB546773959 /* PrivacyInfo.xcprivacy in Resources */,
+				8EB11730405F680C85CBBF66 /* dragon_despawn.wav in Resources */,
+				1C5B0FE4E1E66EC17D68F138 /* dragon_egg_ate.wav in Resources */,
+				880BF8169E39FA39FA35A935 /* dragon_spawn.mp3 in Resources */,
+				D6FFED8180E343F42D067976 /* eat.mp3 in Resources */,
+				E13B07298ED9F054FD99DA4B /* game_over.mp3 in Resources */,
+				A9E8DF1D36EAD5227642A9CB /* game_start.mp3 in Resources */,
+				451DF1526C4C8B43291100B3 /* high_score.wav in Resources */,
+				0BD0934CC28C8B688D0CDF90 /* music_music.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
