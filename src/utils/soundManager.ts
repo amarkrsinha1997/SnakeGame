@@ -28,6 +28,7 @@ type SoundType =
   | 'eat'
   | 'dragonEat'
   | 'dragonSpawn'
+  | 'dragonAmbient'
   | 'dragonDespawn'
   | 'gameOver'
   | 'gameStart'
@@ -37,6 +38,8 @@ let isSoundMuted = false;
 let isMusicMuted = false;
 let webBackgroundMusic: HTMLAudioElement | null = null;
 let nativeBackgroundMusic: any | null = null;
+let webDragonAmbient: HTMLAudioElement | null = null;
+let nativeDragonAmbient: any | null = null;
 
 const webAudioCache: Map<SoundType, HTMLAudioElement> = new Map();
 const nativeAudioCache: Map<SoundType, any> = new Map();
@@ -46,6 +49,7 @@ const webSoundFiles: Record<SoundType, any> = {
   eat: require('../assets/sounds/eat.mp3'),
   dragonEat: require('../assets/sounds/dragon_egg_ate.wav'),
   dragonSpawn: require('../assets/sounds/dragon_spawn.mp3'),
+  dragonAmbient: require('../assets/sounds/dragon_spawn.mp3'), // Reuse spawn sound as ambient loop
   dragonDespawn: require('../assets/sounds/dragon_despawn.wav'),
   gameOver: require('../assets/sounds/game_over.mp3'),
   gameStart: require('../assets/sounds/game_start.mp3'),
@@ -58,6 +62,7 @@ const nativeSoundFileNames: Record<SoundType, string> = {
   eat: 'eat.mp3',
   dragonEat: 'dragon_egg_ate.wav',
   dragonSpawn: 'dragon_spawn.mp3',
+  dragonAmbient: 'dragon_spawn.mp3', // Reuse spawn sound as ambient loop
   dragonDespawn: 'dragon_despawn.wav',
   gameOver: 'game_over.mp3',
   gameStart: 'game_start.mp3',
@@ -237,6 +242,73 @@ export async function stopMusic(): Promise<void> {
   }
 }
 
+export async function playDragonAmbient(): Promise<void> {
+  if (isSoundMuted) return;
+
+  try {
+    if (Platform.OS === 'web') {
+      if (!webDragonAmbient) {
+        webDragonAmbient = new Audio(webSoundFiles.dragonAmbient);
+        webDragonAmbient.loop = true;
+        webDragonAmbient.volume = 0.2; // Subtle ambient volume
+      }
+      if (webDragonAmbient.paused) {
+        webDragonAmbient.currentTime = 0;
+        await webDragonAmbient.play().catch(error => {
+          console.warn('Failed to play dragon ambient:', error);
+        });
+      }
+    } else {
+      if (!hasNativeSound()) return;
+
+      if (!nativeDragonAmbient) {
+        nativeDragonAmbient = new SoundModule(
+          nativeSoundFileNames.dragonAmbient,
+          SoundModule.MAIN_BUNDLE,
+          (error: unknown) => {
+            if (error) {
+              console.warn('Failed to load dragon ambient:', error);
+              nativeDragonAmbient = null;
+              return;
+            }
+            if (nativeDragonAmbient && !isSoundMuted) {
+              nativeDragonAmbient.setNumberOfLoops(-1); // Loop indefinitely
+              nativeDragonAmbient.setVolume(0.2); // Subtle volume
+              nativeDragonAmbient.play((success: boolean) => {
+                if (!success) {
+                  console.warn('Failed to play dragon ambient');
+                }
+              });
+            }
+          },
+        );
+      } else if (!nativeDragonAmbient.isPlaying()) {
+        nativeDragonAmbient.play();
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to play dragon ambient:', error);
+  }
+}
+
+export async function stopDragonAmbient(): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      if (webDragonAmbient) {
+        webDragonAmbient.pause();
+        webDragonAmbient.currentTime = 0;
+      }
+    } else {
+      if (hasNativeSound() && nativeDragonAmbient) {
+        nativeDragonAmbient.pause();
+        nativeDragonAmbient.setCurrentTime(0);
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to stop dragon ambient:', error);
+  }
+}
+
 export function setSoundMuted(muted: boolean): void {
   isSoundMuted = muted;
 }
@@ -272,6 +344,7 @@ export function toggleMute(): boolean {
 export async function releaseAllSounds(): Promise<void> {
   webAudioCache.clear();
   webBackgroundMusic = null;
+  webDragonAmbient = null;
 
   if (hasNativeSound()) {
     nativeAudioCache.forEach(sound => {
@@ -282,6 +355,11 @@ export async function releaseAllSounds(): Promise<void> {
     if (nativeBackgroundMusic) {
       nativeBackgroundMusic.release();
       nativeBackgroundMusic = null;
+    }
+
+    if (nativeDragonAmbient) {
+      nativeDragonAmbient.release();
+      nativeDragonAmbient = null;
     }
   }
 }

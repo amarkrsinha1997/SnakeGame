@@ -1,13 +1,39 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, PanResponder, Vibration, Platform } from 'react-native';
 import {
-  COLORS, BOARD_WIDTH, BOARD_HEIGHT, GRID_WIDTH, GRID_HEIGHT,
-  Direction, DIRECTIONS, Position,
-  REGULAR_EGG_POINTS, DRAGON_EGG_LIFETIME,
-  calculateGameSpeed, getRandomDragonEggSpawn, getRandomDragonEggRespawn, getRandomDragonEggPoints,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  PanResponder,
+  Vibration,
+  Platform,
+} from 'react-native';
+import {
+  COLORS,
+  BOARD_WIDTH,
+  BOARD_HEIGHT,
+  GRID_WIDTH,
+  GRID_HEIGHT,
+  Direction,
+  DIRECTIONS,
+  Position,
+  GameDifficulty,
+  REGULAR_EGG_POINTS,
+  DRAGON_EGG_LIFETIME,
+  calculateGameSpeed,
+  getRandomDragonEggSpawn,
+  getRandomDragonEggRespawn,
+  getRandomDragonEggPoints,
 } from '../constants';
 import { getHighScore, updateHighScoreIfNeeded } from '../utils/storage';
-import { playSound, playMusic, stopMusic } from '../utils/soundManager';
+import {
+  playSound,
+  playMusic,
+  stopMusic,
+  playDragonAmbient,
+  stopDragonAmbient,
+} from '../utils/soundManager';
 import { Snake } from './Snake';
 import { Food } from './Food';
 import { DragonEgg } from './DragonEgg';
@@ -15,6 +41,7 @@ import { DPadControls } from './DPadControls';
 
 interface GameScreenProps {
   onExit: () => void;
+  difficulty?: GameDifficulty;
 }
 
 interface GameState {
@@ -38,7 +65,9 @@ function getRandomPosition(excludePositions: Position[]): Position {
       x: Math.floor(Math.random() * GRID_WIDTH),
       y: Math.floor(Math.random() * GRID_HEIGHT),
     };
-  } while (excludePositions.some((pos) => pos.x === position.x && pos.y === position.y));
+  } while (
+    excludePositions.some(pos => pos.x === position.x && pos.y === position.y)
+  );
   return position;
 }
 
@@ -65,10 +94,16 @@ function createInitialState(): GameState {
   };
 }
 
-export function GameScreen({ onExit }: GameScreenProps) {
+export function GameScreen({
+  onExit,
+  difficulty = 'medium',
+}: Readonly<GameScreenProps>) {
   const [gameState, setGameState] = useState<GameState>(createInitialState);
   const [highScore, setHighScore] = useState(0);
-  const [currentSpeed, setCurrentSpeed] = useState(calculateGameSpeed(3));
+  const [currentSpeed, setCurrentSpeed] = useState(
+    calculateGameSpeed(3, difficulty),
+  );
+  const [hasPlayedHighScoreSound, setHasPlayedHighScoreSound] = useState(false);
   const directionRef = useRef<Direction>('RIGHT');
   const nextDirectionRef = useRef<Direction>('RIGHT');
   const dragonEggTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -77,34 +112,81 @@ export function GameScreen({ onExit }: GameScreenProps) {
     getHighScore().then(setHighScore);
   }, []);
 
+  // Keyboard controls for web (Arrow keys and WASD)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!gameState.isRunning || gameState.isGameOver) return;
+
+      const keyMap: Record<string, Direction> = {
+        ArrowUp: 'UP',
+        ArrowDown: 'DOWN',
+        ArrowLeft: 'LEFT',
+        ArrowRight: 'RIGHT',
+        w: 'UP',
+        W: 'UP',
+        s: 'DOWN',
+        S: 'DOWN',
+        a: 'LEFT',
+        A: 'LEFT',
+        d: 'RIGHT',
+        D: 'RIGHT',
+      };
+
+      const newDirection = keyMap[event.key];
+      if (newDirection) {
+        event.preventDefault();
+        handleDirectionChange(newDirection);
+      }
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+  }, [gameState.isRunning, gameState.isGameOver]);
+
   useEffect(() => {
     if (gameState.isGameOver) {
       stopMusic();
+      stopDragonAmbient();
       if (Platform.OS !== 'web') {
+        // Long pattern for game over
         Vibration.vibrate([0, 100, 50, 100, 50, 200]);
       }
       playSound('gameOver');
-      updateHighScoreIfNeeded(gameState.score).then((newHighScore) => {
-        if (gameState.score > 0 && gameState.score >= newHighScore) {
+      updateHighScoreIfNeeded(gameState.score).then(newHighScore => {
+        if (
+          gameState.score > 0 &&
+          gameState.score >= newHighScore &&
+          !hasPlayedHighScoreSound
+        ) {
+          if (Platform.OS !== 'web') {
+            // Celebration pattern for new high score at end
+            Vibration.vibrate([0, 50, 50, 50, 50, 50, 50, 100]);
+          }
           playSound('highScore');
         }
         setHighScore(newHighScore);
       });
     }
-  }, [gameState.isGameOver, gameState.score]);
+  }, [gameState.isGameOver, gameState.score, hasPlayedHighScoreSound]);
 
   useEffect(() => {
-    setCurrentSpeed(calculateGameSpeed(gameState.snake.length));
-  }, [gameState.snake.length]);
+    setCurrentSpeed(calculateGameSpeed(gameState.snake.length, difficulty));
+  }, [gameState.snake.length, difficulty]);
 
   useEffect(() => {
     if (gameState.dragonEgg && gameState.isRunning) {
+      // Play dragon spawn sound once and start ambient loop
+      playDragonAmbient();
+
       dragonEggTimerRef.current = setInterval(() => {
-        setGameState((prev) => {
+        setGameState(prev => {
           if (!prev.dragonEgg) return prev;
           const newTime = prev.dragonEggTimeRemaining - 100;
           if (newTime <= 0) {
             playSound('dragonDespawn');
+            stopDragonAmbient();
             return {
               ...prev,
               dragonEgg: null,
@@ -121,7 +203,10 @@ export function GameScreen({ onExit }: GameScreenProps) {
         if (dragonEggTimerRef.current) {
           clearInterval(dragonEggTimerRef.current);
         }
+        stopDragonAmbient();
       };
+    } else {
+      stopDragonAmbient();
     }
   }, [gameState.dragonEgg, gameState.isRunning]);
 
@@ -129,7 +214,7 @@ export function GameScreen({ onExit }: GameScreenProps) {
     if (!gameState.isRunning || gameState.isGameOver) return;
 
     const interval = setInterval(() => {
-      setGameState((prev) => {
+      setGameState(prev => {
         if (!prev.isRunning || prev.isGameOver) return prev;
 
         const direction = nextDirectionRef.current;
@@ -139,9 +224,13 @@ export function GameScreen({ onExit }: GameScreenProps) {
         const newHead: Position = { x: head.x + dir.x, y: head.y + dir.y };
 
         if (
-          newHead.x < 0 || newHead.x >= GRID_WIDTH ||
-          newHead.y < 0 || newHead.y >= GRID_HEIGHT ||
-          prev.snake.some((seg, i) => i > 0 && seg.x === newHead.x && seg.y === newHead.y)
+          newHead.x < 0 ||
+          newHead.x >= GRID_WIDTH ||
+          newHead.y < 0 ||
+          newHead.y >= GRID_HEIGHT ||
+          prev.snake.some(
+            (seg, i) => i > 0 && seg.x === newHead.x && seg.y === newHead.y,
+          )
         ) {
           return { ...prev, isGameOver: true, isRunning: false };
         }
@@ -160,7 +249,22 @@ export function GameScreen({ onExit }: GameScreenProps) {
           if (newDragonEgg) allPositions.push(newDragonEgg);
           newFood = getRandomPosition(allPositions);
           eggsEaten += 1;
+
+          // Short vibration for eating
+          if (Platform.OS !== 'web') {
+            Vibration.vibrate(50);
+          }
           playSound('eat');
+
+          // Check if new high score achieved during gameplay
+          if (newScore > highScore && !hasPlayedHighScoreSound) {
+            if (Platform.OS !== 'web') {
+              // Celebration vibration for high score
+              Vibration.vibrate([0, 50, 50, 50, 50, 100]);
+            }
+            playSound('highScore');
+            setHasPlayedHighScoreSound(true);
+          }
 
           if (!newDragonEgg && eggsEaten >= nextDragonAt) {
             const excludePositions = [...newSnake, newFood];
@@ -170,7 +274,8 @@ export function GameScreen({ onExit }: GameScreenProps) {
           }
         } else if (
           prev.dragonEgg &&
-          newHead.x === prev.dragonEgg.x && newHead.y === prev.dragonEgg.y
+          newHead.x === prev.dragonEgg.x &&
+          newHead.y === prev.dragonEgg.y
         ) {
           const dragonPoints = getRandomDragonEggPoints();
           newScore += dragonPoints;
@@ -178,7 +283,22 @@ export function GameScreen({ onExit }: GameScreenProps) {
           newDragonEggTime = 0;
           eggsEaten = 0;
           nextDragonAt = getRandomDragonEggRespawn();
+
+          // Medium vibration for dragon egg
+          if (Platform.OS !== 'web') {
+            Vibration.vibrate([0, 100, 50, 100]);
+          }
           playSound('dragonEat');
+
+          // Check if new high score achieved during gameplay
+          if (newScore > highScore && !hasPlayedHighScoreSound) {
+            if (Platform.OS !== 'web') {
+              // Celebration vibration for high score
+              Vibration.vibrate([0, 50, 50, 50, 50, 100]);
+            }
+            playSound('highScore');
+            setHasPlayedHighScoreSound(true);
+          }
         } else {
           newSnake.pop();
         }
@@ -206,10 +326,11 @@ export function GameScreen({ onExit }: GameScreenProps) {
     directionRef.current = 'RIGHT';
     nextDirectionRef.current = 'RIGHT';
     setGameState(newState);
-    setCurrentSpeed(calculateGameSpeed(3));
+    setCurrentSpeed(calculateGameSpeed(3, difficulty));
+    setHasPlayedHighScoreSound(false);
     playSound('gameStart');
     playMusic();
-  }, []);
+  }, [difficulty]);
 
   const handleDirectionChange = useCallback((newDirection: Direction) => {
     const currentDir = DIRECTIONS[directionRef.current];
@@ -243,13 +364,13 @@ export function GameScreen({ onExit }: GameScreenProps) {
 
         handleDirectionChange(newDirection);
       },
-    })
+    }),
   ).current;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      
+
       <View style={styles.header}>
         <View style={styles.scoresRow}>
           <View style={styles.scoreBox}>
@@ -261,7 +382,11 @@ export function GameScreen({ onExit }: GameScreenProps) {
             <Text style={styles.highScoreValue}>{highScore}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.exitButton} onPress={handleExit} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.exitButton}
+          onPress={handleExit}
+          activeOpacity={0.7}
+        >
           <Text style={styles.exitButtonText}>✕</Text>
         </TouchableOpacity>
       </View>

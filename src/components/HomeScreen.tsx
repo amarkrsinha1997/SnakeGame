@@ -1,29 +1,49 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
-import { COLORS } from '../constants';
-import { getHighScore, getSoundEnabled, setSoundEnabled, getMusicEnabled, setMusicEnabled } from '../utils/storage';
-import { setSoundMuted, setMusicMuted, playMusic, stopMusic } from '../utils/soundManager';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  StatusBar,
+  Animated,
+} from 'react-native';
+import { COLORS, GameDifficulty, DIFFICULTY_SETTINGS } from '../constants';
+import {
+  getHighScore,
+  getSoundEnabled,
+  setSoundEnabled,
+  getMusicEnabled,
+  setMusicEnabled,
+} from '../utils/storage';
+import {
+  setSoundMuted,
+  setMusicMuted,
+  playMusic,
+  stopMusic,
+} from '../utils/soundManager';
 
 interface HomeScreenProps {
-  onStartGame: () => void;
+  onStartGame: (difficulty: GameDifficulty) => void;
 }
 
-export function HomeScreen({ onStartGame }: HomeScreenProps) {
+export function HomeScreen({ onStartGame }: Readonly<HomeScreenProps>) {
   const [highScore, setHighScore] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
   const [musicOn, setMusicOn] = useState(true);
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<GameDifficulty>('medium');
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     getHighScore().then(setHighScore);
-    getSoundEnabled().then((enabled) => {
+    getSoundEnabled().then(enabled => {
       setSoundOn(enabled);
       setSoundMuted(!enabled);
     });
-    getMusicEnabled().then((enabled) => {
+    getMusicEnabled().then(enabled => {
       setMusicOn(enabled);
       setMusicMuted(!enabled);
-      // Start music on home screen if enabled
+      // Auto-play music if enabled in settings
       if (enabled) {
         playMusic();
       }
@@ -41,7 +61,7 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
           duration: 1000,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     pulse.start();
 
@@ -64,7 +84,7 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
     setMusicOn(newValue);
     setMusicEnabled(newValue);
     setMusicMuted(!newValue);
-    
+
     // Actually start or stop the music
     if (newValue) {
       playMusic();
@@ -76,12 +96,14 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      
+
       <View style={styles.content}>
-        <Animated.Text style={[styles.title, { transform: [{ scale: pulseAnim }] }]}>
+        <Animated.Text
+          style={[styles.title, { transform: [{ scale: pulseAnim }] }]}
+        >
           🐍 SNAKE
         </Animated.Text>
-        
+
         <Text style={styles.subtitle}>Classic Game</Text>
 
         <View style={styles.highScoreContainer}>
@@ -89,15 +111,59 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
           <Text style={styles.highScoreValue}>{highScore}</Text>
         </View>
 
-        <TouchableOpacity style={styles.playButton} onPress={onStartGame} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.playButton}
+          onPress={() => onStartGame(selectedDifficulty)}
+          activeOpacity={0.8}
+        >
           <Text style={styles.playButtonText}>▶ PLAY</Text>
         </TouchableOpacity>
 
+        <View style={styles.difficultySelector}>
+          <Text style={styles.difficultyLabel}>SELECT DIFFICULTY</Text>
+          <View style={styles.difficultyButtons}>
+            {(Object.keys(DIFFICULTY_SETTINGS) as GameDifficulty[]).map(
+              diff => (
+                <TouchableOpacity
+                  key={diff}
+                  style={[
+                    styles.difficultyButton,
+                    selectedDifficulty === diff &&
+                      styles.difficultyButtonActive,
+                    { borderColor: DIFFICULTY_SETTINGS[diff].color },
+                    selectedDifficulty === diff && {
+                      backgroundColor: DIFFICULTY_SETTINGS[diff].color,
+                    },
+                  ]}
+                  onPress={() => setSelectedDifficulty(diff)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.difficultyButtonText,
+                      selectedDifficulty === diff &&
+                        styles.difficultyButtonTextActive,
+                    ]}
+                  >
+                    {DIFFICULTY_SETTINGS[diff].label}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
+          </View>
+        </View>
+
         <View style={styles.instructions}>
           <Text style={styles.instructionTitle}>HOW TO PLAY</Text>
-          <Text style={styles.instructionText}>• Swipe or use D-Pad to move</Text>
-          <Text style={styles.instructionText}>• Eat eggs to grow (+1 point)</Text>
-          <Text style={styles.instructionText}>• Catch dragon eggs for bonus!</Text>
+          <Text style={styles.instructionText}>
+            • Swipe, D-Pad or Arrow/WASD keys
+          </Text>
+          <Text style={styles.instructionText}>
+            • Eat eggs to grow (+1 point)
+          </Text>
+          <Text style={styles.instructionText}>
+            • Catch dragon eggs for bonus!
+          </Text>
           <Text style={styles.instructionText}>• Avoid walls and yourself</Text>
         </View>
 
@@ -107,8 +173,10 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
             onPress={toggleSound}
             activeOpacity={0.7}
           >
-            <Text style={styles.audioIcon}>{soundOn ? '🔊' : '🔇'}</Text>
-            <Text style={[styles.audioLabel, !soundOn && styles.audioLabelOff]}>Sound</Text>
+            <Text style={styles.audioIcon}>{soundOn ? '🔊' : '🔈'}</Text>
+            <Text style={[styles.audioLabel, !soundOn && styles.audioLabelOff]}>
+              Sound
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -116,8 +184,10 @@ export function HomeScreen({ onStartGame }: HomeScreenProps) {
             onPress={toggleMusic}
             activeOpacity={0.7}
           >
-            <Text style={styles.audioIcon}>{musicOn ? '🎵' : '🎵'}</Text>
-            <Text style={[styles.audioLabel, !musicOn && styles.audioLabelOff]}>Music</Text>
+            <Text style={styles.audioIcon}>{musicOn ? '🎵' : '🎶'}</Text>
+            <Text style={[styles.audioLabel, !musicOn && styles.audioLabelOff]}>
+              Music
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -190,6 +260,47 @@ const styles = StyleSheet.create({
     color: COLORS.buttonText,
     fontWeight: 'bold',
     letterSpacing: 3,
+  },
+  difficultySelector: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  difficultyLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    letterSpacing: 2,
+    marginBottom: 12,
+  },
+  difficultyButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  difficultyButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 2,
+    backgroundColor: COLORS.scorePanel,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  difficultyButtonActive: {
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  difficultyButtonText: {
+    fontSize: 12,
+    color: COLORS.text,
+    fontWeight: '600',
+    letterSpacing: 1,
+  },
+  difficultyButtonTextActive: {
+    color: COLORS.buttonText,
+    fontWeight: 'bold',
   },
   instructions: {
     marginTop: 45,

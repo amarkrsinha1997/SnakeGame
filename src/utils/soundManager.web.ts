@@ -1,11 +1,20 @@
 // Web-only sound manager implementation
 // Uses HTML5 Audio API and bundles sounds via require() from src/assets/sounds
 
-type SoundType = 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore';
+type SoundType =
+  | 'eat'
+  | 'dragonEat'
+  | 'dragonSpawn'
+  | 'dragonAmbient'
+  | 'dragonDespawn'
+  | 'gameOver'
+  | 'gameStart'
+  | 'highScore';
 
 let isSoundMuted = false;
 let isMusicMuted = false;
 let webBackgroundMusic: HTMLAudioElement | null = null;
+let webDragonAmbient: HTMLAudioElement | null = null;
 
 const webAudioCache: Map<SoundType, HTMLAudioElement> = new Map();
 
@@ -14,13 +23,15 @@ const soundFiles: Record<SoundType, string> = {
   eat: require('../assets/sounds/eat.mp3') as string,
   dragonEat: require('../assets/sounds/dragon_egg_ate.wav') as string,
   dragonSpawn: require('../assets/sounds/dragon_spawn.mp3') as string,
+  dragonAmbient: require('../assets/sounds/dragon_spawn.mp3') as string, // Reuse spawn sound for ambient
   dragonDespawn: require('../assets/sounds/dragon_despawn.wav') as string,
   gameOver: require('../assets/sounds/game_over.mp3') as string,
   gameStart: require('../assets/sounds/game_start.mp3') as string,
   highScore: require('../assets/sounds/high_score.wav') as string,
 };
 
-const backgroundMusicFile: string = require('../assets/sounds/music_music.mp3') as string;
+const backgroundMusicFile: string =
+  require('../assets/sounds/music_music.mp3') as string;
 
 function loadWebSound(type: SoundType): HTMLAudioElement | null {
   try {
@@ -83,6 +94,35 @@ export async function stopMusic(): Promise<void> {
   }
 }
 
+export async function playDragonAmbient(): Promise<void> {
+  if (isSoundMuted) return;
+
+  try {
+    if (!webDragonAmbient) {
+      webDragonAmbient = new Audio(soundFiles.dragonAmbient);
+      webDragonAmbient.loop = true;
+      webDragonAmbient.volume = 0.2; // Subtle ambient volume
+    }
+    if (webDragonAmbient.paused) {
+      webDragonAmbient.currentTime = 0;
+      await webDragonAmbient.play().catch(() => {});
+    }
+  } catch (error) {
+    console.warn('Failed to play dragon ambient:', error);
+  }
+}
+
+export async function stopDragonAmbient(): Promise<void> {
+  try {
+    if (webDragonAmbient) {
+      webDragonAmbient.pause();
+      webDragonAmbient.currentTime = 0;
+    }
+  } catch (error) {
+    console.warn('Failed to stop dragon ambient:', error);
+  }
+}
+
 export function setSoundMuted(muted: boolean): void {
   isSoundMuted = muted;
 }
@@ -118,6 +158,5 @@ export function toggleMute(): boolean {
 export async function releaseAllSounds(): Promise<void> {
   webAudioCache.clear();
   webBackgroundMusic = null;
+  webDragonAmbient = null;
 }
-
-

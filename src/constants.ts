@@ -4,6 +4,40 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export const CELL_SIZE = 10;
 
+// Difficulty Settings
+export type GameDifficulty = 'easy' | 'medium' | 'hard' | 'extreme';
+
+export const DIFFICULTY_SETTINGS = {
+  easy: {
+    baseSpeed: 150,
+    speedIncrease: 2,
+    maxSpeedCap: 300,
+    label: 'Easy',
+    color: '#00ff88',
+  },
+  medium: {
+    baseSpeed: 100,
+    speedIncrease: 2,
+    maxSpeedCap: 250,
+    label: 'Medium',
+    color: '#ffd700',
+  },
+  hard: {
+    baseSpeed: 70,
+    speedIncrease: 2,
+    maxSpeedCap: 200,
+    label: 'Hard',
+    color: '#ff6b35',
+  },
+  extreme: {
+    baseSpeed: 50,
+    speedIncrease: 2,
+    maxSpeedCap: 150,
+    label: 'Extreme',
+    color: '#ff4444',
+  },
+} as const;
+
 export const GAME_BASE_SPEED = 100;
 export const SPEED_INCREASE_PER_SEGMENT = 2;
 export const MAX_SPEED_CAP = 250;
@@ -65,19 +99,60 @@ export const DIRECTIONS = {
 export type Direction = keyof typeof DIRECTIONS;
 export type Position = { x: number; y: number };
 
-export function calculateGameSpeed(snakeLength: number): number {
-  const speed = GAME_BASE_SPEED + (snakeLength * SPEED_INCREASE_PER_SEGMENT);
-  return Math.min(speed, MAX_SPEED_CAP);
+// Bonus System (Open/Closed Principle)
+export interface Bonus {
+  readonly type: string;
+  position: Position;
+  readonly points: number;
+  readonly lifetime: number; // milliseconds, 0 = permanent
+  timeRemaining: number;
+  readonly spawnChance: number; // 0-1, chance to spawn after conditions met
+}
+
+export class DragonEggBonus implements Bonus {
+  readonly type = 'dragon-egg';
+  position: Position;
+  readonly points: number;
+  readonly lifetime = DRAGON_EGG_LIFETIME;
+  timeRemaining: number;
+  readonly spawnChance = 1;
+
+  constructor(position: Position) {
+    this.position = position;
+    this.points = getRandomDragonEggPoints();
+    this.timeRemaining = this.lifetime;
+  }
+}
+
+export function calculateGameSpeed(
+  snakeLength: number,
+  difficulty: GameDifficulty = 'medium',
+): number {
+  const settings = DIFFICULTY_SETTINGS[difficulty];
+  const speed = settings.baseSpeed + snakeLength * settings.speedIncrease;
+  return Math.min(speed, settings.maxSpeedCap);
 }
 
 export function getRandomDragonEggSpawn(): number {
-  return Math.floor(Math.random() * (DRAGON_EGG_MAX_SPAWN - DRAGON_EGG_MIN_SPAWN + 1)) + DRAGON_EGG_MIN_SPAWN;
+  return (
+    Math.floor(
+      Math.random() * (DRAGON_EGG_MAX_SPAWN - DRAGON_EGG_MIN_SPAWN + 1),
+    ) + DRAGON_EGG_MIN_SPAWN
+  );
 }
 
 export function getRandomDragonEggRespawn(): number {
-  return Math.floor(Math.random() * (DRAGON_EGG_MAX_RESPAWN - DRAGON_EGG_MIN_RESPAWN + 1)) + DRAGON_EGG_MIN_RESPAWN;
+  return (
+    Math.floor(
+      Math.random() * (DRAGON_EGG_MAX_RESPAWN - DRAGON_EGG_MIN_RESPAWN + 1),
+    ) + DRAGON_EGG_MIN_RESPAWN
+  );
 }
 
 export function getRandomDragonEggPoints(): number {
-  return Math.floor(Math.random() * (DRAGON_EGG_MAX_POINTS - DRAGON_EGG_MIN_POINTS + 1)) + DRAGON_EGG_MIN_POINTS;
+  return (
+    Math.floor(
+      Math.random() * (DRAGON_EGG_MAX_POINTS - DRAGON_EGG_MIN_POINTS + 1),
+    ) + DRAGON_EGG_MIN_POINTS
+  );
 }
