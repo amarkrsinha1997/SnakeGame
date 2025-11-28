@@ -185,6 +185,47 @@ alwaysApply: true
 - **IMPORTANT**: DO NOT use Expo or Expo-dependent libraries (expo-av, expo-*, etc.)
 - This is a bare React Native project without Expo Go
 
+## Platform & Workflow Rules
+
+### Multi‑platform awareness
+- For **every non‑trivial feature or change**, always think in terms of **Web, iOS, and Android**:
+  - Explicitly note if a change:
+    - is implemented on each platform,
+    - needs a different implementation per platform, or
+    - is **not applicable (N/A)** to a given platform.
+- For any feature that clearly doesn’t apply to some platforms (for example, mobile‑only sensor APIs or web‑only UI):
+  - Write an explicit status summary such as:  
+    `web: N/A, ios: implemented, android: implemented`.
+
+### Build & verification expectations
+- By default, treat **builds as part of the definition of done**:
+  - **Web**: run at least one of:
+    - `npm run web` (dev server) or
+    - `npm run web:build` (production bundle)
+  - **Android**: `npm run android`
+  - **iOS**: `npm run ios`
+- Behavior on failures:
+  - Treat **any platform build failure as blocking** for the current task.
+  - Stop further implementation for that task, capture the error, and report it clearly (include relevant log lines and suggested next steps).
+- It is acceptable to skip a platform build **only if the user explicitly instructs to skip it** for that task.
+
+### Pre‑work questions (MCQ flow)
+- For any task that requires **medium to extreme effort** (multi‑file, architectural, or cross‑platform work):
+  - **Before doing the actual work**, ask the user **at least 5 multiple‑choice questions (MCQs)**.
+  - MCQs should:
+    - Be concise and technical/product‑focused.
+    - Cover architecture, platform differences, UX/behavior, and constraints.
+    - Include a **recommended default option** (first option) that is used if the user doesn’t respond.
+- **Do not ask MCQs for trivial tasks**, such as:
+  - Typos, very small one‑line fixes, or purely mechanical edits that have no design or architectural impact.
+
+### Avoid repeating previously answered questions
+- When a preference has already been answered and captured in rules (for example, how to treat builds, MCQ style, or platform policies):
+  - **Do not re‑ask the same question** for subsequent tasks.
+  - Reuse the existing rule/preference instead.
+  - Only ask follow‑up MCQs that gather **new information relevant to the specific task**, not duplicates.
+
+
 ## Sound File Management Rules
 ⚠️ **CRITICAL - MUST FOLLOW** ⚠️
 

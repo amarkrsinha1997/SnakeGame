@@ -1,17 +1,38 @@
 import { Platform } from 'react-native';
-import Sound from 'react-native-sound';
+
+// Lazy / defensive require of react-native-sound so the app doesn't crash
+// when the native module isn't linked or available (e.g. in some iOS setups).
+// We never assume Sound is available; all native audio paths are guarded.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let SoundModule: any | null = null;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const SoundLib = require('react-native-sound');
+  SoundModule = SoundLib.default || SoundLib;
+  if (SoundModule && typeof SoundModule.setCategory === 'function') {
+    SoundModule.setCategory('Playback');
+  }
+} catch (error) {
+  console.warn(
+    'react-native-sound is not available; native sounds will be disabled.',
+    error
+  );
+}
+
+function hasNativeSound(): boolean {
+  return Platform.OS !== 'web' && !!SoundModule;
+}
 
 type SoundType = 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore';
 
 let isSoundMuted = false;
 let isMusicMuted = false;
 let webBackgroundMusic: HTMLAudioElement | null = null;
-let nativeBackgroundMusic: Sound | null = null;
+let nativeBackgroundMusic: any | null = null;
 
 const webAudioCache: Map<SoundType, HTMLAudioElement> = new Map();
-const nativeAudioCache: Map<SoundType, Sound> = new Map();
-
-Sound.setCategory('Playback');
+const nativeAudioCache: Map<SoundType, any> = new Map();
 
 // Sound file mappings - all from src/assets/sounds/
 const soundFiles: Record<SoundType, any> = {
@@ -49,8 +70,9 @@ function loadWebSound(type: SoundType): HTMLAudioElement | null {
   }
 }
 
-function loadNativeSound(type: SoundType): Promise<Sound | null> {
-  if (Platform.OS === 'web') return Promise.resolve(null);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function loadNativeSound(type: SoundType): Promise<any | null> {
+  if (!hasNativeSound()) return Promise.resolve(null);
   
   return new Promise((resolve) => {
     try {
@@ -61,7 +83,7 @@ function loadNativeSound(type: SoundType): Promise<Sound | null> {
       }
 
       // Use undefined as basePath when using require()
-      const sound = new Sound(soundFiles[type], undefined, (error) => {
+      const sound = new SoundModule(soundFiles[type], undefined, (error: unknown) => {
         if (error) {
           console.warn(`Failed to load native sound ${type}:`, error);
           console.warn('Sound file:', soundFiles[type]);
@@ -123,9 +145,16 @@ export async function playMusic(): Promise<void> {
         });
       }
     } else {
+      if (!hasNativeSound()) {
+        console.warn(
+          'react-native-sound is not available; cannot play native background music.'
+        );
+        return;
+      }
+
       if (!nativeBackgroundMusic) {
         // Use undefined as basePath when using require()
-        nativeBackgroundMusic = new Sound(backgroundMusicFile, undefined, (error) => {
+        nativeBackgroundMusic = new SoundModule(backgroundMusicFile, undefined, (error: unknown) => {
           if (error) {
             console.warn('Failed to load background music:', error);
             console.warn('Background music file:', backgroundMusicFile);
@@ -168,7 +197,7 @@ export async function stopMusic(): Promise<void> {
         webBackgroundMusic.currentTime = 0;
       }
     } else {
-      if (nativeBackgroundMusic) {
+      if (hasNativeSound() && nativeBackgroundMusic) {
         nativeBackgroundMusic.pause();
       }
     }
@@ -213,13 +242,15 @@ export async function releaseAllSounds(): Promise<void> {
   webAudioCache.clear();
   webBackgroundMusic = null;
   
-  nativeAudioCache.forEach((sound) => {
-    sound.release();
-  });
-  nativeAudioCache.clear();
-  
-  if (nativeBackgroundMusic) {
-    nativeBackgroundMusic.release();
-    nativeBackgroundMusic = null;
+  if (hasNativeSound()) {
+    nativeAudioCache.forEach((sound) => {
+      sound.release();
+    });
+    nativeAudioCache.clear();
+    
+    if (nativeBackgroundMusic) {
+      nativeBackgroundMusic.release();
+      nativeBackgroundMusic = null;
+    }
   }
 }

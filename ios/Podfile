@@ -20,7 +20,8 @@ target 'SnakeGame' do
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
-    :app_path => "#{Pod::Config.instance.installation_root}/.."
+    :app_path => "#{Pod::Config.instance.installation_root}/..",
+    :new_arch_enabled => false
   )
 
   post_install do |installer|
@@ -30,5 +31,24 @@ target 'SnakeGame' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Ensure AVFoundation is linked for react-native-sound (RNSound) and the app target.
+    installer.pods_project.targets.each do |target|
+      next unless ['RNSound', 'SnakeGame'].include?(target.name)
+
+      target.build_configurations.each do |config|
+        flags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+        # Avoid duplicating the framework flag
+        flag_string = flags.is_a?(Array) ? flags.join(' ') : flags.to_s
+        unless flag_string.include?('-framework AVFoundation')
+          if flags.is_a?(Array)
+            flags += ['-framework', 'AVFoundation']
+          else
+            flags = "#{flags} -framework AVFoundation"
+          end
+        end
+        config.build_settings['OTHER_LDFLAGS'] = flags
+      end
+    end
   end
 end

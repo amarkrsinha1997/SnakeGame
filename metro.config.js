@@ -1,3 +1,4 @@
+const path = require('path');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
 /**
@@ -6,6 +7,18 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {};
+const defaultConfig = getDefaultConfig(__dirname);
 
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+const config = {
+  resolver: {
+    ...defaultConfig.resolver,
+    extraNodeModules: {
+      ...(defaultConfig.resolver ? defaultConfig.resolver.extraNodeModules : {}),
+      // Route `react-native-sound` to the JS shim so we don't require
+      // a linked native module at runtime (avoids "package not linked" error).
+      'react-native-sound': path.resolve(__dirname, 'src/shims/react-native-sound.web.ts'),
+    },
+  },
+};
+
+module.exports = mergeConfig(defaultConfig, config);

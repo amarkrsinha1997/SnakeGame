@@ -10,6 +10,7 @@ const babelLoaderConfiguration = {
     path.resolve(appDirectory, 'App.tsx'),
     path.resolve(appDirectory, 'src'),
     path.resolve(appDirectory, 'node_modules/react-native-web'),
+    path.resolve(appDirectory, 'node_modules/react-native-sound'),
   ],
   use: {
     loader: 'babel-loader',
@@ -50,6 +51,7 @@ module.exports = {
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
     alias: {
       'react-native$': 'react-native-web',
+      'react-native-sound': path.resolve(appDirectory, 'src/shims/react-native-sound.web.ts'),
     },
   },
   module: {
