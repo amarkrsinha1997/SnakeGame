@@ -1,0 +1,45 @@
+---
+alwaysApply: true
+---
+
+# Snake Game Project Rules
+
+## Theme
+- Dark cyberpunk aesthetic with neon accents
+- Primary color: Neon green (#00ff88) for snake and interactive elements
+- Accent color: Orange (#ff6b35) for food/eggs
+- Background: Deep dark (#0a0a0f) with subtle grid (#1a1a2e)
+- Use glow/shadow effects for depth and visual appeal
+- Animations should be smooth and subtle (pulse effects, transitions)
+
+## Architecture
+- Keep game logic in GameScreen.tsx with React state and setInterval
+- Renderer components (Snake, Food) are pure presentational
+- Constants centralized in src/constants.ts
+- Storage utilities in src/utils/storage.ts
+- Use TypeScript strict typing for Position, Direction types
+
+## Code Style
+- Functional components with hooks only
+- Use useCallback for event handlers and memoized functions
+- Use useRef for values that shouldn't trigger re-renders (direction refs)
+- Keep files under 300 lines; split if larger
+- No classes; prefer simple functions
+
+## Game Mechanics
+- Grid dynamically sized based on screen dimensions
+- Cell size: 12px for dense grid
+- Snake grows by 1 cell per egg consumed
+- Score: +10 points per egg
+- Game over on wall collision or self-collision
+- High scores persisted via AsyncStorage
+
+## Dependencies
+- @react-native-async-storage/async-storage for persistence
+- react-native-sound for game audio effects
+- No game engine library needed; plain React state works
+
+## Navigation
+- HomeScreen: Main menu with play button and instructions
+- GameScreen: Active gameplay with exit button to return home
+- Navigation managed via simple state in App.tsx
