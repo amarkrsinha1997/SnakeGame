@@ -30,6 +30,8 @@ type SoundType =
   | 'dragonSpawn'
   | 'dragonAmbient'
   | 'dragonDespawn'
+  | 'shrinkEat'
+  | 'shrinkSpawn'
   | 'gameOver'
   | 'gameStart'
   | 'highScore';
@@ -51,6 +53,8 @@ const webSoundFiles: Record<SoundType, any> = {
   dragonSpawn: require('../assets/sounds/dragon_spawn.mp3'),
   dragonAmbient: require('../assets/sounds/dragon_spawn.mp3'), // Reuse spawn sound as ambient loop
   dragonDespawn: require('../assets/sounds/dragon_despawn.wav'),
+  shrinkEat: require('../assets/sounds/eat.mp3'), // Reuse eat sound for shrink collect
+  shrinkSpawn: require('../assets/sounds/dragon_spawn.mp3'), // Reuse dragon spawn for shrink spawn
   gameOver: require('../assets/sounds/game_over.mp3'),
   gameStart: require('../assets/sounds/game_start.mp3'),
   highScore: require('../assets/sounds/high_score.wav'),
@@ -64,6 +68,8 @@ const nativeSoundFileNames: Record<SoundType, string> = {
   dragonSpawn: 'dragon_spawn.mp3',
   dragonAmbient: 'dragon_spawn.mp3', // Reuse spawn sound as ambient loop
   dragonDespawn: 'dragon_despawn.wav',
+  shrinkEat: 'eat.mp3', // Reuse eat sound for shrink collect
+  shrinkSpawn: 'dragon_spawn.mp3', // Reuse dragon spawn for shrink spawn
   gameOver: 'game_over.mp3',
   gameStart: 'game_start.mp3',
   highScore: 'high_score.wav',

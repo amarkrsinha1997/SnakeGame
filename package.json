@@ -1,14 +1,21 @@
 {
   "name": "SnakeGame",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start": "react-native start",
     "android": "react-native run-android",
+    "android:release": "cd android && ./gradlew assembleRelease",
+    "android:bundle": "cd android && ./gradlew bundleRelease",
+    "android:clean": "cd android && ./gradlew clean",
     "ios": "react-native run-ios",
+    "ios:release": "react-native run-ios --configuration Release",
+    "ios:build": "cd ios && xcodebuild -workspace SnakeGame.xcworkspace -scheme SnakeGame -configuration Release -sdk iphoneos -archivePath build/SnakeGame.xcarchive archive",
+    "ios:clean": "cd ios && xcodebuild clean && rm -rf build Pods Podfile.lock && pod install",
     "web": "webpack serve --mode development",
     "web:build": "webpack --mode production",
+    "clean": "watchman watch-del-all && rm -rf node_modules && npm install",
     "lint": "eslint .",
-    "start": "react-native start",
     "test": "jest"
   },
   "dependencies": {

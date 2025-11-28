@@ -40,8 +40,7 @@ import {
   stopDragonAmbient,
 } from '../utils/soundManager';
 import { Snake } from './Snake';
-import { Food } from './Food';
-import { BonusRenderer } from './BonusRenderer';
+import { BonusRenderer, NormalEggRenderer } from './BonusRenderer';
 import { DPadControls } from './DPadControls';
 
 interface GameScreenProps {
@@ -381,6 +380,22 @@ export function GameScreen({
             newScore += collidedBonus.points;
             snakeGrew = snakeGrew || config.growsSnake;
 
+            // Handle special effects
+            if (config.effect.type === 'shrink' && config.effect.value) {
+              const shrinkAmount = config.effect.value;
+              const currentLength = newSnake.length;
+              // Only shrink if snake has more than shrinkAmount cells
+              // Keep at least 3 cells (minimum snake size)
+              if (currentLength > shrinkAmount + 2) {
+                // Remove cells from the tail
+                for (let i = 0; i < shrinkAmount; i++) {
+                  newSnake.pop();
+                }
+              }
+              // If snake is already small (<=5 cells), do nothing special
+              // The points are still awarded
+            }
+
             // Vibration
             if (
               Platform.OS !== 'web' &&
@@ -519,7 +534,7 @@ export function GameScreen({
       <View style={styles.gameContainer} {...panResponder.panHandlers}>
         <View style={styles.board}>
           <Snake segments={gameState.snake} />
-          <Food position={gameState.food} />
+          <NormalEggRenderer position={gameState.food} />
           {gameState.bonusState.activeBonuses.map(bonus => (
             <BonusRenderer key={bonus.id} bonus={bonus} />
           ))}

@@ -8,6 +8,7 @@
  * - Lifetime and spawn behavior
  * - Sound effects
  * - Vibration patterns
+ * - Special effects (e.g., shrink snake)
  */
 
 import { Position } from '../constants';
@@ -22,9 +23,28 @@ export type BonusSoundType =
   | 'dragonSpawn'
   | 'dragonAmbient'
   | 'dragonDespawn'
+  | 'shrinkEat'
+  | 'shrinkSpawn'
   | 'gameOver'
   | 'gameStart'
   | 'highScore';
+
+// ============================================================================
+// Special Effect Types
+// ============================================================================
+
+export type BonusEffectType =
+  | 'none' // No special effect
+  | 'shrink' // Shrink the snake by N cells
+  | 'speed-boost' // Temporarily increase speed
+  | 'slow-motion' // Temporarily decrease speed
+  | 'invincible'; // Temporarily invincible
+
+export interface BonusEffect {
+  type: BonusEffectType;
+  value?: number; // e.g., how many cells to shrink
+  duration?: number; // Duration in ms for timed effects
+}
 
 // ============================================================================
 // Bonus Configuration Interface
@@ -101,6 +121,9 @@ export interface BonusConfig {
 
   /** Whether this bonus makes the snake grow */
   readonly growsSnake: boolean;
+
+  /** Special effect when collected */
+  readonly effect: BonusEffect;
 }
 
 // ============================================================================
@@ -193,6 +216,7 @@ export const REGULAR_EGG_CONFIG: BonusConfig = {
     onCollect: [50],
   },
   growsSnake: true,
+  effect: { type: 'none' },
 };
 
 /** Dragon Egg - High value, timed bonus */
@@ -228,6 +252,42 @@ export const DRAGON_EGG_CONFIG: BonusConfig = {
     onCollect: [0, 100, 50, 100],
   },
   growsSnake: true,
+  effect: { type: 'none' },
+};
+
+/** Shrink Egg - Shrinks snake by 5 cells */
+export const SHRINK_EGG_CONFIG: BonusConfig = {
+  type: 'shrink-egg',
+  displayName: 'Shrink Egg',
+  minPoints: 3,
+  maxPoints: 5,
+  lifetime: 15000, // 15 seconds
+  minSpawnAfterEggs: 10,
+  maxSpawnAfterEggs: 15,
+  minRespawnAfterEggs: 10,
+  maxRespawnAfterEggs: 15,
+  spawnChance: 0.8,
+  maxInstances: 1,
+  priority: 45,
+  colors: {
+    primary: '#00ffcc', // Cyan/teal
+    secondary: '#00cc99', // Darker teal
+    glow: 'rgba(0, 255, 204, 0.5)',
+  },
+  icon: '🔽',
+  sizeMultiplier: 1.4,
+  showTimer: true,
+  timerColor: '#00ffcc',
+  sounds: {
+    onSpawn: 'shrinkSpawn',
+    onCollect: 'shrinkEat',
+    onDespawn: 'dragonDespawn',
+  },
+  vibration: {
+    onCollect: [0, 50, 30, 50, 30, 50],
+  },
+  growsSnake: false, // Does NOT grow snake
+  effect: { type: 'shrink', value: 5 }, // Shrinks snake by 5 cells
 };
 
 /** Golden Apple - Medium value, shorter timer */
@@ -262,6 +322,7 @@ export const GOLDEN_APPLE_CONFIG: BonusConfig = {
     onCollect: [0, 75, 50, 75],
   },
   growsSnake: true,
+  effect: { type: 'none' },
 };
 
 /** Crystal Gem - Rare high value bonus */
@@ -296,11 +357,13 @@ export const CRYSTAL_GEM_CONFIG: BonusConfig = {
     onCollect: [0, 50, 30, 50, 30, 100],
   },
   growsSnake: true,
+  effect: { type: 'none' },
 };
 
 // Register all bonus types
 bonusRegistry.register(REGULAR_EGG_CONFIG);
 bonusRegistry.register(DRAGON_EGG_CONFIG);
+bonusRegistry.register(SHRINK_EGG_CONFIG);
 bonusRegistry.register(GOLDEN_APPLE_CONFIG);
 bonusRegistry.register(CRYSTAL_GEM_CONFIG);
 

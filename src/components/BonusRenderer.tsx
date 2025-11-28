@@ -3,15 +3,80 @@
  *
  * This component renders any bonus based on its configuration,
  * supporting different visual styles, animations, and timer displays.
+ *
+ * Renderers:
+ * - NormalEggRenderer: Regular food egg (orange, pulsing)
+ * - DragonEggRenderer: Special dragon egg (gold, rotating, particles)
+ * - ShrinkEggRenderer: Shrink bonus (cyan/teal, shrinking animation)
+ * - DefaultBonusRenderer: Generic fallback for other bonus types
  */
 
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { CELL_SIZE, COLORS } from '../constants';
+import { CELL_SIZE, COLORS, Position } from '../constants';
 import { ActiveBonus, bonusRegistry, BonusConfig } from '../types/bonus';
 
 interface BonusRendererProps {
   bonus: ActiveBonus;
+}
+
+// ============================================================================
+// Props for Food rendered via bonus system
+// ============================================================================
+
+interface FoodBonusRendererProps {
+  position: Position;
+}
+
+/**
+ * NormalEggRenderer - Renders regular food as part of the bonus system
+ * This replaces the standalone Food component
+ */
+export function NormalEggRenderer({
+  position,
+}: Readonly<FoodBonusRendererProps>) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  return (
+    <View
+      style={[
+        styles.normalEggContainer,
+        {
+          left: position.x * CELL_SIZE,
+          top: position.y * CELL_SIZE,
+        },
+      ]}
+    >
+      <View style={styles.normalEggGlow} />
+      <Animated.View
+        style={[
+          styles.normalEgg,
+          {
+            transform: [{ scale: pulseAnim }],
+          },
+        ]}
+      />
+    </View>
+  );
 }
 
 export function BonusRenderer({ bonus }: Readonly<BonusRendererProps>) {
@@ -25,6 +90,10 @@ export function BonusRenderer({ bonus }: Readonly<BonusRendererProps>) {
   // Delegate to specialized renderers based on bonus type
   if (config.type === 'dragon-egg') {
     return <DragonEggRenderer bonus={bonus} config={config} />;
+  }
+
+  if (config.type === 'shrink-egg') {
+    return <ShrinkEggRenderer bonus={bonus} config={config} />;
   }
 
   // Default renderer for other bonus types
@@ -323,10 +392,193 @@ function DragonEggRenderer({ bonus, config }: Readonly<RendererProps>) {
 }
 
 // ============================================================================
+// Shrink Egg Renderer (Cyan/teal with shrinking animation)
+// ============================================================================
+
+function ShrinkEggRenderer({ bonus, config }: Readonly<RendererProps>) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shrinkAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.6)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Pulse animation
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.9,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    // Shrinking effect animation (mimics the shrink effect)
+    const shrink = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shrinkAnim, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shrinkAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    // Glow animation
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.4,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    // Slow reverse rotation
+    const rotate = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: -1,
+        duration: 4000,
+        useNativeDriver: true,
+      }),
+    );
+
+    pulse.start();
+    shrink.start();
+    glow.start();
+    rotate.start();
+
+    return () => {
+      pulse.stop();
+      shrink.stop();
+      glow.stop();
+      rotate.stop();
+    };
+  }, [pulseAnim, shrinkAnim, glowAnim, rotateAnim]);
+
+  const rotation = rotateAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-360deg', '0deg', '360deg'],
+  });
+
+  const progress = bonus.timeRemaining / config.lifetime;
+  const timerWidth = Math.max(0, progress * (CELL_SIZE * 2.5));
+
+  return (
+    <View
+      style={[
+        styles.shrinkContainer,
+        {
+          left: bonus.position.x * CELL_SIZE - CELL_SIZE * 0.7,
+          top: bonus.position.y * CELL_SIZE - CELL_SIZE * 0.7,
+        },
+      ]}
+    >
+      {/* Outer glow */}
+      <Animated.View
+        style={[
+          styles.shrinkOuterGlow,
+          { backgroundColor: config.colors.glow, opacity: glowAnim },
+        ]}
+      />
+
+      {/* Inner rings (shrink visual) */}
+      <Animated.View
+        style={[
+          styles.shrinkRing,
+          {
+            borderColor: config.colors.primary,
+            transform: [{ scale: shrinkAnim }],
+            opacity: glowAnim,
+          },
+        ]}
+      />
+
+      {/* Main egg */}
+      <Animated.View
+        style={[
+          styles.shrinkEgg,
+          {
+            backgroundColor: config.colors.primary,
+            borderColor: config.colors.secondary,
+            shadowColor: config.colors.primary,
+            transform: [{ scale: pulseAnim }, { rotate: rotation }],
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.shrinkInnerEgg,
+            { backgroundColor: config.colors.secondary },
+          ]}
+        />
+        <Text style={styles.shrinkIcon}>{config.icon}</Text>
+      </Animated.View>
+
+      {/* Timer bar */}
+      {config.showTimer && (
+        <View style={styles.shrinkTimerContainer}>
+          <View style={styles.shrinkTimerBg}>
+            <View
+              style={[
+                styles.shrinkTimerBar,
+                { width: timerWidth, backgroundColor: config.timerColor },
+              ]}
+            />
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ============================================================================
 // Styles
 // ============================================================================
 
 const styles = StyleSheet.create({
+  // Normal egg styles (replaces Food component)
+  normalEggContainer: {
+    position: 'absolute',
+    width: CELL_SIZE,
+    height: CELL_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  normalEggGlow: {
+    position: 'absolute',
+    width: CELL_SIZE * 2,
+    height: CELL_SIZE * 2,
+    borderRadius: CELL_SIZE,
+    backgroundColor: COLORS.eggGlow,
+  },
+  normalEgg: {
+    width: CELL_SIZE - 2,
+    height: CELL_SIZE - 2,
+    borderRadius: CELL_SIZE / 2,
+    backgroundColor: COLORS.egg,
+    shadowColor: COLORS.egg,
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+
   // Default bonus styles
   container: {
     position: 'absolute',
@@ -418,6 +670,67 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dragonTimerBar: {
+    height: 4,
+    borderRadius: 2,
+  },
+
+  // Shrink egg styles
+  shrinkContainer: {
+    position: 'absolute',
+    width: CELL_SIZE * 2.4,
+    height: CELL_SIZE * 2.4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shrinkOuterGlow: {
+    position: 'absolute',
+    width: CELL_SIZE * 2.8,
+    height: CELL_SIZE * 2.8,
+    borderRadius: CELL_SIZE * 1.4,
+  },
+  shrinkRing: {
+    position: 'absolute',
+    width: CELL_SIZE * 2.2,
+    height: CELL_SIZE * 2.2,
+    borderRadius: CELL_SIZE * 1.1,
+    borderWidth: 2,
+    backgroundColor: 'transparent',
+  },
+  shrinkEgg: {
+    width: CELL_SIZE * 1.4,
+    height: CELL_SIZE * 1.4,
+    borderRadius: CELL_SIZE * 0.7,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+    borderWidth: 2,
+  },
+  shrinkInnerEgg: {
+    position: 'absolute',
+    width: CELL_SIZE * 0.7,
+    height: CELL_SIZE * 0.7,
+    borderRadius: CELL_SIZE * 0.35,
+  },
+  shrinkIcon: {
+    fontSize: 11,
+    position: 'absolute',
+  },
+  shrinkTimerContainer: {
+    position: 'absolute',
+    bottom: -8,
+    width: CELL_SIZE * 2.4,
+    alignItems: 'center',
+  },
+  shrinkTimerBg: {
+    width: CELL_SIZE * 2.4,
+    height: 4,
+    backgroundColor: COLORS.timerBarBg,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  shrinkTimerBar: {
     height: 4,
     borderRadius: 2,
   },
