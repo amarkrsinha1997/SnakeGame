@@ -1,0 +1,280 @@
+---
+applyTo: '**'
+---
+
+# Snake Game Project Rules
+
+## ⚠️ Critical Project Constraints
+
+- **NO EXPO**: This is a bare React Native project. Do NOT use Expo Go or any expo-\* packages
+- **Audio Library**: Uses `react-native-sound` for cross-platform audio (Web, Android, iOS)
+- **Keep it Simple**: Use only core React Native APIs and minimal dependencies
+
+## Theme & Colors
+
+- **Theme**: Dark cyberpunk aesthetic with neon accents
+- **Colors** (defined in `src/constants.ts`):
+  - Background: `#0a0a0f` (deep dark)
+  - Grid: `#1a1a2e` with lines `#252540`
+  - Snake: Head `#00ff88` (neon green), Body `#00cc6a`, Glow `rgba(0, 255, 136, 0.3)`
+  - Regular Egg: `#ff6b35` (orange) with glow effect
+  - Dragon Egg: `#ffd700` (gold) with `#ff8c00` (dark orange) inner, stronger glow
+  - Text: `#ffffff` primary, `#888899` secondary
+  - UI Elements: Buttons `#00ff88`, D-Pad `#2a2a4a`, Timer Bar `#ff4444`
+- Use glow/shadow effects for depth and visual appeal
+- Animations should be smooth and subtle (pulse effects, transitions)
+
+## Project Structure
+
+### Core Files
+
+- **App.tsx**: Main app entry, navigation between Home/Game screens
+- **index.web.js**: Web entry point for React Native Web
+
+### Components (`src/components/`)
+
+- **GameScreen.tsx**: Main game logic, state management, game loop (setInterval)
+- **HomeScreen.tsx**: Main menu with play button, high score display, instructions
+- **Snake.tsx**: Pure presentational component for rendering snake segments
+- **Food.tsx**: Regular egg renderer
+- **DragonEgg.tsx**: Special golden egg renderer with timer bar
+- **DPadControls.tsx**: On-screen directional pad for mobile controls
+
+### Assets (`src/assets/`)
+
+- **icons/SnakeLogo.tsx**: SVG logo component
+- **sounds/** - ⚠️ **SINGLE SOURCE FOR ALL AUDIO FILES** ⚠️
+  - **CRITICAL**: All sound files MUST exist ONLY in `src/assets/sounds/`
+  - **DO NOT** copy sounds to `web/sounds/`, `android/app/src/main/res/raw/`, or `ios/SnakeGame/sounds/`
+  - Metro bundler (native) and Webpack (web) automatically bundle sounds from this location
+  - Sound files:
+    - `eat.mp3`: Regular egg consumption (4KB)
+    - `dragon_egg_ate.wav`: Dragon egg consumption (610KB)
+    - `dragon_spawn.mp3`: Dragon egg appears (4KB)
+    - `dragon_despawn.wav`: Dragon egg disappears (287KB)
+    - `game_over.mp3`: Game over sound (96KB)
+    - `game_start.mp3`: Game start sound (68KB)
+    - `high_score.wav`: New high score celebration (513KB)
+    - `music_music.mp3`: Background music - loops during gameplay (1.4MB)
+
+### Utilities (`src/utils/`)
+
+- **soundManager.ts**: Cross-platform audio system using `react-native-sound`
+  - **Web**: Uses HTML5 Audio API with caching
+  - **Android/iOS**: Uses `react-native-sound` library
+  - **Sound Loading**: Uses `require()` statements to load all sounds from `src/assets/sounds/`
+  - **Functions**: `playSound()`, `playMusic()`, `stopMusic()`, `setSoundMuted()`, `setMusicMuted()`
+  - **Sound types**: 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore'
+  - **Background music**: Loops at 30% volume during gameplay, stops on game over/exit
+  - **Caching**: Sound objects cached after first load for performance
+  - **Implementation**:
+    ```typescript
+    const soundFiles: Record<SoundType, any> = {
+      eat: require('../assets/sounds/eat.mp3'),
+      dragonEat: require('../assets/sounds/dragon_egg_ate.wav'),
+      // ... etc
+    };
+    ```
+  - Platform detection automatic via `Platform.OS`
+  - All platforms work with same code and single sound source
+- **storage.ts**: AsyncStorage wrapper for persistence
+  - Functions: `getHighScore()`, `setHighScore()`, `updateHighScoreIfNeeded()`
+  - Audio preferences: `getSoundEnabled()`, `setSoundEnabled()`, `getMusicEnabled()`, `setMusicEnabled()`
+  - Storage keys: `@snake_game_high_score`, `@snake_game_sound_enabled`, `@snake_game_music_enabled`
+
+### Constants (`src/constants.ts`)
+
+- **Grid/Board**:
+  - `CELL_SIZE = 10`
+  - `GRID_WIDTH`, `GRID_HEIGHT`: Calculated from screen dimensions
+  - `BOARD_WIDTH`, `BOARD_HEIGHT`: Grid size × cell size
+- **Game Speed**:
+  - `GAME_BASE_SPEED = 100ms`
+  - `SPEED_INCREASE_PER_SEGMENT = 2ms`
+  - `MAX_SPEED_CAP = 250ms`
+  - `calculateGameSpeed(snakeLength)`: Dynamic speed calculation
+- **Scoring**:
+  - Regular egg: `REGULAR_EGG_POINTS = 1`
+  - Dragon egg: `DRAGON_EGG_MIN_POINTS = 10`, `DRAGON_EGG_MAX_POINTS = 15`
+- **Dragon Egg Mechanics**:
+  - Spawn after: `5-15` eggs eaten (random)
+  - Respawn after: `5-10` eggs eaten (random)
+  - Lifetime: `DRAGON_EGG_LIFETIME = 20000ms` (20 seconds)
+  - Helper functions: `getRandomDragonEggSpawn()`, `getRandomDragonEggRespawn()`, `getRandomDragonEggPoints()`
+- **Directions**: `UP`, `DOWN`, `LEFT`, `RIGHT` as `{x, y}` vectors
+- **Types**: `Direction`, `Position = {x, y}`
+- **Colors**: Full `COLORS` object (see Theme section)
+
+## Architecture & Logic
+
+### Game Logic (GameScreen.tsx)
+
+- Main game state managed with React hooks (useState)
+- Game loop: setInterval at dynamic speed based on snake length
+- Direction changes: useRef to prevent re-renders, buffered input
+- Collision detection: Wall boundaries and self-collision
+- Food spawning: Random position, avoid snake body
+- Dragon egg system: Timed spawns, countdown timer, auto-despawn
+
+### Renderer Components
+
+- Pure presentational components (Snake, Food, DragonEgg)
+- Receive position/state as props
+- No internal logic or state
+- Styled with View, shadow/glow effects
+
+### State Management
+
+- No Redux or complex state library
+- Local component state with hooks
+- useCallback for memoized handlers
+- useRef for non-render values (direction, timers)
+
+## Web Support
+
+### Webpack Configuration (`webpack.config.js`)
+
+- Entry: `index.web.js`
+- Output: `dist/` folder with content-hashed bundles
+- **Babel**: Transpiles TS/TSX/JSX, React Native Web plugin
+- **Loaders**:
+  - JS/TS: babel-loader with React Native Web preset
+  - Images: asset/resource (.gif, .jpg, .png, .svg)
+  - Audio: asset/resource for .mp3/.wav files - bundled automatically via `require()`
+- **Aliases**: `react-native` → `react-native-web`
+- **Dev Server**:
+  - Port: 8080
+  - Static files: `web/` folder only
+  - Sounds bundled via require() - no separate static serving needed
+  - Hot reload enabled
+  - History API fallback for routing
+
+### Web-Specific Adaptations
+
+- Audio: HTML5 Audio API with caching in `soundManager.ts`
+- Platform detection: `Platform.OS === 'web'`
+- Webpack bundles sounds via `require()` statements automatically
+- AsyncStorage: Works via `@react-native-async-storage/async-storage` (uses localStorage on web)
+
+### Native Mobile Adaptations
+
+- Audio: `react-native-sound` library for playback
+- Sounds loaded via `require()` from `src/assets/sounds/`
+- Metro bundler automatically includes sound files in app bundle
+- No manual copying or Xcode/Android configuration needed
+
+### Android Permissions
+
+- **INTERNET**: Required for Metro bundler connection during development
+- **VIBRATE**: Required by React Native core components
+- Both declared in `android/app/src/main/AndroidManifest.xml`
+
+## Code Style
+
+- **Components**: Functional with hooks only, no classes
+- **Callbacks**: Use useCallback for event handlers and memoized functions
+- **Refs**: Use useRef for values that shouldn't trigger re-renders
+- **File Size**: Keep under 300 lines; split if larger
+- **TypeScript**: Strict typing for Position, Direction, all props
+- **Naming**: Descriptive, PascalCase for components, camelCase for functions
+
+## Game Mechanics Summary
+
+- Grid dynamically sized based on screen dimensions
+- Snake grows by 1 segment per egg consumed
+- Speed increases as snake grows (capped at 250ms)
+- Regular eggs: +1 point, orange color
+- Dragon eggs: +10-15 points, gold color, 20s lifetime, spawn randomly
+- Game over: Wall collision or self-collision
+- High scores: Auto-saved, persist between sessions
+
+## Dependencies
+
+- **Storage**: `@react-native-async-storage/async-storage` (v2.2.0)
+- **Audio**: `react-native-sound` (v0.13.0) - cross-platform audio
+- **Web**: `react-native-web`, `webpack`, `babel`
+- **No game engine**: Pure React state and setInterval
+- **IMPORTANT**: DO NOT use Expo or Expo-dependent libraries (expo-av, expo-\*, etc.)
+- This is a bare React Native project without Expo Go
+
+## Platform & Workflow Rules
+
+### Multi‑platform awareness
+
+- For **every non‑trivial feature or change**, always think in terms of **Web, iOS, and Android**:
+  - Explicitly note if a change:
+    - is implemented on each platform,
+    - needs a different implementation per platform, or
+    - is **not applicable (N/A)** to a given platform.
+- For any feature that clearly doesn’t apply to some platforms (for example, mobile‑only sensor APIs or web‑only UI):
+  - Write an explicit status summary such as:  
+    `web: N/A, ios: implemented, android: implemented`.
+
+### Build & verification expectations
+
+- By default, treat **builds as part of the definition of done**:
+  - **Web**: run at least one of:
+    - `npm run web` (dev server) or
+    - `npm run web:build` (production bundle)
+  - **Android**: `npm run android`
+  - **iOS**: `npm run ios`
+- Behavior on failures:
+  - Treat **any platform build failure as blocking** for the current task.
+  - Stop further implementation for that task, capture the error, and report it clearly (include relevant log lines and suggested next steps).
+- It is acceptable to skip a platform build **only if the user explicitly instructs to skip it** for that task.
+
+### Pre‑work questions (MCQ flow)
+
+- For any task that requires **medium to extreme effort** (multi‑file, architectural, or cross‑platform work):
+  - **Before doing the actual work**, ask the user **at least 5 multiple‑choice questions (MCQs)**.
+  - MCQs should:
+    - Be concise and technical/product‑focused.
+    - Cover architecture, platform differences, UX/behavior, and constraints.
+    - Include a **recommended default option** (first option) that is used if the user doesn’t respond.
+- **Do not ask MCQs for trivial tasks**, such as:
+  - Typos, very small one‑line fixes, or purely mechanical edits that have no design or architectural impact.
+
+### Avoid repeating previously answered questions
+
+- When a preference has already been answered and captured in rules (for example, how to treat builds, MCQ style, or platform policies):
+  - **Do not re‑ask the same question** for subsequent tasks.
+  - Reuse the existing rule/preference instead.
+  - Only ask follow‑up MCQs that gather **new information relevant to the specific task**, not duplicates.
+
+## Sound File Management Rules
+
+⚠️ **CRITICAL - MUST FOLLOW** ⚠️
+
+1. **Single Source Location**: ALL sound files MUST exist ONLY in `src/assets/sounds/`
+2. **No Duplicates**: NEVER copy sounds to:
+   - ❌ `web/sounds/`
+   - ❌ `android/app/src/main/res/raw/`
+   - ❌ `ios/SnakeGame/sounds/`
+   - ❌ Any other location
+3. **Loading Method**: Use `require()` statements in `soundManager.ts`:
+   ```typescript
+   const soundFiles = {
+     eat: require('../assets/sounds/eat.mp3'),
+     // etc...
+   };
+   ```
+4. **Bundling**: Metro (native) and Webpack (web) handle bundling automatically
+5. **Adding New Sounds**:
+   - Add file to `src/assets/sounds/`
+   - Add require() statement in `soundManager.ts`
+   - Add to SoundType union type
+   - That's it! No platform-specific setup needed
+
+## Documentation
+
+- All documentation stored in `docs/` folder:
+  - `docs/SOUND_SETUP.md` - Sound system setup and troubleshooting
+  - `docs/CHANGES_SUMMARY.md` - Change history and implementation details
+  - `docs/README_SOUNDS.md` - Quick reference for sound file management
+
+## Navigation
+
+- **App.tsx**: Simple state-based navigation (`screen` state)
+- **HomeScreen**: Entry point, play button, high score, instructions
+- **GameScreen**: Active gameplay, exit button returns to home
+- No React Navigation library needed

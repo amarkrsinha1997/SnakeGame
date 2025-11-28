@@ -110,7 +110,6 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 40,
     color: COLORS.dpadArrow,
-    marginBottom: 20,
     fontWeight: 'bold',
   },
   arrowActive: {

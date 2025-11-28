@@ -16,7 +16,7 @@ try {
 } catch (error) {
   console.warn(
     'react-native-sound is not available; native sounds will be disabled.',
-    error
+    error,
   );
 }
 
@@ -24,7 +24,14 @@ function hasNativeSound(): boolean {
   return Platform.OS !== 'web' && !!SoundModule;
 }
 
-type SoundType = 'eat' | 'dragonEat' | 'dragonSpawn' | 'dragonDespawn' | 'gameOver' | 'gameStart' | 'highScore';
+type SoundType =
+  | 'eat'
+  | 'dragonEat'
+  | 'dragonSpawn'
+  | 'dragonDespawn'
+  | 'gameOver'
+  | 'gameStart'
+  | 'highScore';
 
 let isSoundMuted = false;
 let isMusicMuted = false;
@@ -34,8 +41,8 @@ let nativeBackgroundMusic: any | null = null;
 const webAudioCache: Map<SoundType, HTMLAudioElement> = new Map();
 const nativeAudioCache: Map<SoundType, any> = new Map();
 
-// Sound file mappings - all from src/assets/sounds/
-const soundFiles: Record<SoundType, any> = {
+// Web: use require() which returns URLs via webpack
+const webSoundFiles: Record<SoundType, any> = {
   eat: require('../assets/sounds/eat.mp3'),
   dragonEat: require('../assets/sounds/dragon_egg_ate.wav'),
   dragonSpawn: require('../assets/sounds/dragon_spawn.mp3'),
@@ -45,15 +52,28 @@ const soundFiles: Record<SoundType, any> = {
   highScore: require('../assets/sounds/high_score.wav'),
 };
 
-const backgroundMusicFile = require('../assets/sounds/music_music.mp3');
+// Native iOS/Android: string filenames for react-native-sound with MAIN_BUNDLE
+// These files must be added to the iOS bundle (Xcode) and Android res/raw
+const nativeSoundFileNames: Record<SoundType, string> = {
+  eat: 'eat.mp3',
+  dragonEat: 'dragon_egg_ate.wav',
+  dragonSpawn: 'dragon_spawn.mp3',
+  dragonDespawn: 'dragon_despawn.wav',
+  gameOver: 'game_over.mp3',
+  gameStart: 'game_start.mp3',
+  highScore: 'high_score.wav',
+};
+
+const webBackgroundMusicFile = require('../assets/sounds/music_music.mp3');
+const nativeBackgroundMusicFileName = 'music_music.mp3';
 
 function getWebAudioUrl(type: SoundType): string {
-  return soundFiles[type];
+  return webSoundFiles[type];
 }
 
 function loadWebSound(type: SoundType): HTMLAudioElement | null {
   if (Platform.OS !== 'web') return null;
-  
+
   try {
     const cached = webAudioCache.get(type);
     if (cached) {
@@ -73,8 +93,8 @@ function loadWebSound(type: SoundType): HTMLAudioElement | null {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function loadNativeSound(type: SoundType): Promise<any | null> {
   if (!hasNativeSound()) return Promise.resolve(null);
-  
-  return new Promise((resolve) => {
+
+  return new Promise(resolve => {
     try {
       const cached = nativeAudioCache.get(type);
       if (cached) {
@@ -82,18 +102,22 @@ function loadNativeSound(type: SoundType): Promise<any | null> {
         return;
       }
 
-      // Use undefined as basePath when using require()
-      const sound = new SoundModule(soundFiles[type], undefined, (error: unknown) => {
-        if (error) {
-          console.warn(`Failed to load native sound ${type}:`, error);
-          console.warn('Sound file:', soundFiles[type]);
-          resolve(null);
-          return;
-        }
-        console.log(`Successfully loaded sound: ${type}`);
-        nativeAudioCache.set(type, sound);
-        resolve(sound);
-      });
+      // Use string filename with MAIN_BUNDLE for iOS/Android
+      const sound = new SoundModule(
+        nativeSoundFileNames[type],
+        SoundModule.MAIN_BUNDLE,
+        (error: unknown) => {
+          if (error) {
+            console.warn(`Failed to load native sound ${type}:`, error);
+            console.warn('Sound file:', nativeSoundFileNames[type]);
+            resolve(null);
+            return;
+          }
+          console.log(`Successfully loaded sound: ${type}`);
+          nativeAudioCache.set(type, sound);
+          resolve(sound);
+        },
+      );
     } catch (error) {
       console.warn(`Failed to load native sound ${type}:`, error);
       resolve(null);
@@ -116,7 +140,7 @@ export async function playSound(type: SoundType): Promise<void> {
       if (sound) {
         // Reset to beginning and play
         sound.setCurrentTime(0);
-        sound.play((success) => {
+        sound.play((success: boolean) => {
           if (!success) {
             console.warn(`Failed to play sound ${type}`);
           }
@@ -134,48 +158,55 @@ export async function playMusic(): Promise<void> {
   try {
     if (Platform.OS === 'web') {
       if (!webBackgroundMusic) {
-        webBackgroundMusic = new Audio(backgroundMusicFile);
+        webBackgroundMusic = new Audio(webBackgroundMusicFile);
         webBackgroundMusic.loop = true;
         webBackgroundMusic.volume = 0.3;
       }
       if (webBackgroundMusic.paused) {
         webBackgroundMusic.currentTime = 0;
-        await webBackgroundMusic.play().catch((error) => {
+        await webBackgroundMusic.play().catch(error => {
           console.warn('Failed to play web music:', error);
         });
       }
     } else {
       if (!hasNativeSound()) {
         console.warn(
-          'react-native-sound is not available; cannot play native background music.'
+          'react-native-sound is not available; cannot play native background music.',
         );
         return;
       }
 
       if (!nativeBackgroundMusic) {
-        // Use undefined as basePath when using require()
-        nativeBackgroundMusic = new SoundModule(backgroundMusicFile, undefined, (error: unknown) => {
-          if (error) {
-            console.warn('Failed to load background music:', error);
-            console.warn('Background music file:', backgroundMusicFile);
-            nativeBackgroundMusic = null;
-            return;
-          }
-          console.log('Successfully loaded background music');
-          if (nativeBackgroundMusic && !isMusicMuted) {
-            nativeBackgroundMusic.setNumberOfLoops(-1);
-            nativeBackgroundMusic.setVolume(0.3);
-            nativeBackgroundMusic.play((success) => {
-              if (!success) {
-                console.warn('Failed to play background music');
-              } else {
-                console.log('Background music started playing');
-              }
-            });
-          }
-        });
+        // Use string filename with MAIN_BUNDLE for iOS/Android
+        nativeBackgroundMusic = new SoundModule(
+          nativeBackgroundMusicFileName,
+          SoundModule.MAIN_BUNDLE,
+          (error: unknown) => {
+            if (error) {
+              console.warn('Failed to load background music:', error);
+              console.warn(
+                'Background music file:',
+                nativeBackgroundMusicFileName,
+              );
+              nativeBackgroundMusic = null;
+              return;
+            }
+            console.log('Successfully loaded background music');
+            if (nativeBackgroundMusic && !isMusicMuted) {
+              nativeBackgroundMusic.setNumberOfLoops(-1);
+              nativeBackgroundMusic.setVolume(0.3);
+              nativeBackgroundMusic.play((success: boolean) => {
+                if (!success) {
+                  console.warn('Failed to play background music');
+                } else {
+                  console.log('Background music started playing');
+                }
+              });
+            }
+          },
+        );
       } else if (!nativeBackgroundMusic.isPlaying()) {
-        nativeBackgroundMusic.play((success) => {
+        nativeBackgroundMusic.play((success: boolean) => {
           if (!success) {
             console.warn('Failed to resume background music');
           } else {
@@ -241,13 +272,13 @@ export function toggleMute(): boolean {
 export async function releaseAllSounds(): Promise<void> {
   webAudioCache.clear();
   webBackgroundMusic = null;
-  
+
   if (hasNativeSound()) {
-    nativeAudioCache.forEach((sound) => {
+    nativeAudioCache.forEach(sound => {
       sound.release();
     });
     nativeAudioCache.clear();
-    
+
     if (nativeBackgroundMusic) {
       nativeBackgroundMusic.release();
       nativeBackgroundMusic = null;
